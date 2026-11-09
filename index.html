@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ക്ഷേത്ര മാനേജ്‌മെന്റ് സോഫ്റ്റ്‌വെയർ - ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Manjari & Noto Sans Malayalam -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manjari:wght@400;700&family=Noto+Sans+Malayalam:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- React & React DOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+  <!-- Babel Standalone for JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase SDKs (Modular Script Version 11) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getDatabase, ref, set, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+    window.firebaseModules = {
+      initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
+      getDatabase, ref, set, push, update, remove, onValue
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Manjari', 'Noto Sans Malayalam', sans-serif;
+    }
+    
+    @media print {
+      body {
+        background: white !important;
+        color: black !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .receipt-card-print {
+        width: 10cm !important;
+        height: 8cm !important;
+        border: 1.5px solid #000 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        margin: auto !important;
+        page-break-inside: avoid;
+      }
+      .a4-print-page {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 15mm !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 10mm;
+      }
+    }
+  </style>
+</head>
+<body class="bg-amber-50/60 text-slate-800 min-h-screen flex flex-col">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const firebaseConfig = {
+      apiKey: "demo-key",
+      authDomain: "mahavishnu-6054c.firebaseapp.com",
+      databaseURL: "https://mahavishnu-6054c-default-rtdb.firebaseio.com",
+      projectId: "mahavishnu-6054c",
+      storageBucket: "mahavishnu-6054c.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:demo"
+    };
+
+    const STARS = [
+      "അശ്വതി", "ഭരണി", "കാർത്തിക", "രോഹിണി", "മകയിരം", "തിരുവാതിര", "പുണർതം",
+      "പൂയം", "ആയില്യം", "മകം", "പൂരം", "ഉത്രം", "അത്തം", "ചിത്തിര", "ചോതി",
+      "വിശാഖം", "അനിഴം", "തൃക്കേട്ട", "മൂലം", "പൂരാടം", "ഉത്രാടം", "തിരുവോണം",
+      "അവിട്ടം", "ചതയം", "പൂരുരുട്ടാതി", "ഉത്രട്ടാതി", "രേവതി"
+    ];
+
+    const MONTH_OPTIONS = [
+      "2026 ജനുവരി", "2026 ഫെബ്രുവരി", "2026 മാർച്ച്", "2026 ഏപ്രിൽ", "2026 മേയ്", "2026 ജൂൺ",
+      "2026 ജൂലൈ", "2026 ഓഗസ്റ്റ്", "2026 സെപ്റ്റംബർ", "2026 ഒക്ടോബർ", "2026 നവംബർ", "2026 ഡിസംബർ",
+      "2027 ജനുവരി", "2027 ഫെബ്രുവരി", "2027 മാർച്ച്", "2027 ഏപ്രിൽ", "2027 മേയ്", "2027 ജൂൺ",
+      "2027 ജൂലൈ", "2027 ഓഗസ്റ്റ്", "2027 സെപ്റ്റംബർ", "2027 ഒക്ടോബർ", "2027 നവംബർ", "2027 ഡിസംബർ"
+    ];
+
+    const INITIAL_DEITIES = ["ശ്രീ കോവിൽ (വിഷ്ണു)", "ഗണപതി", "ശാസ്താവ്"];
+
+    const INITIAL_OFFERINGS = [
+      { id: 'off_1', name_ml: 'പുഷ്പാഞ്ജലി', rate: 20, deity: 'ശ്രീ കോവിൽ (മഹാദേവൻ)', category: 'വഴിപാട്' },
+      { id: 'off_2', name_ml: 'ഗണപതി ഹോമം', rate: 100, deity: 'ഗണപതി', category: 'വഴിപാട്' },
+      { id: 'off_3', name_ml: 'പായസം (1 ലിറ്റർ)', rate: 150, deity: 'ദേവി', category: 'വഴിപാട്' },
+      { id: 'off_4', name_ml: 'അന്നദാനം (1 ആൾ)', rate: 100, deity: 'ക്ഷേത്രം', category: 'അന്നദാനം' },
+      { id: 'off_5', name_ml: 'സംഭാവന / കാണിക്ക', rate: 500, deity: 'ക്ഷേത്രം', category: 'സംഭാവന' },
+      { id: 'off_6', name_ml: 'മാലവഴിപാട്', rate: 250, deity: 'ശ്രീ കോവിൽ (വിഷ്ണു)', category: 'വഴിപാട്' },
+      { id: 'off_7', name_ml: 'മുപ്പെട്ട് വ്യാഴാഴ്ച പ്രത്യേക നിവേദ്യം', rate: 200, deity: 'വിഷ്ണു', category: 'വഴിപാട്' }
+    ];
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('vazhipadu');
+      const [user, setUser] = useState(null);
+      const [fb, setFb] = useState(null);
+
+      // Login / Role System State & Password State
+      const [currentUserRole, setCurrentUserRole] = useState('counter1');
+      const [showLoginModal, setShowLoginModal] = useState(false);
+      const [loginPasscode, setLoginPasscode] = useState('');
+      const [adminPasscode, setAdminPasscode] = useState(() => {
+        return localStorage.getItem('temple_admin_passcode') || '1234';
+      });
+
+      useEffect(() => {
+        localStorage.setItem('temple_admin_passcode', adminPasscode);
+      }, [adminPasscode]);
+      const [showChangePassModal, setShowChangePassModal] = useState(false);
+      const [oldPassInput, setOldPassInput] = useState('');
+      const [newPassInput, setNewPassInput] = useState('');
+      const [confirmPassInput, setConfirmPassInput] = useState('');
+
+      const [deities, setDeities] = useState(INITIAL_DEITIES);
+      const [offerings, setOfferings] = useState(INITIAL_OFFERINGS);
+      const [receipts, setReceipts] = useState([]);
+      const [transactions, setTransactions] = useState([]);
+      const [monthlyMembers, setMonthlyMembers] = useState([]);
+      const [muppettuMembers, setMuppettuMembers] = useState([]);
+      const [staffList, setStaffList] = useState([]);
+
+      const [showOfferingModal, setShowOfferingModal] = useState(false);
+      const [showMemberModal, setShowMemberModal] = useState(false);
+      const [showMuppettuModal, setShowMuppettuModal] = useState(false);
+      const [showStaffModal, setShowStaffModal] = useState(false);
+      const [showPayRecordModal, setShowPayRecordModal] = useState(false);
+      const [showMuppettuPayModal, setShowMuppettuPayModal] = useState(false);
+      const [showExpenseModal, setShowExpenseModal] = useState(false);
+      const [showIncomeModal, setShowIncomeModal] = useState(false);
+
+      // Income & Expense Forms
+      const [incCategory, setIncCategory] = useState('അന്നദാനം');
+      const [incPayerName, setIncPayerName] = useState('');
+      const [incAmount, setIncAmount] = useState('');
+      const [incNotes, setIncNotes] = useState('');
+      const [incPayMode, setIncPayMode] = useState('Cash');
+
+      const [expCategory, setExpCategory] = useState('അന്നദാനത്തിനുള്ള സാധനങ്ങൾ');
+      const [expAmount, setExpAmount] = useState('');
+      const [expNotes, setExpNotes] = useState('');
+      const [expDate, setExpDate] = useState(new Date().toISOString().split('T')[0]);
+
+      // Monthly Member State & Dropdown Filter
+      const [memberSearchQuery, setMemberSearchQuery] = useState('');
+      const [selectedStarFilter, setSelectedStarFilter] = useState('');
+      const [selectedOfferingFilter, setSelectedOfferingFilter] = useState('');
+      const [onlyMalaVazhipadu, setOnlyMalaVazhipadu] = useState(false);
+      const [showStarSummary, setShowStarSummary] = useState(true);
+      const [selectedMemberForPay, setSelectedMemberForPay] = useState(null);
+      const [recordMonthVal, setRecordMonthVal] = useState(MONTH_OPTIONS[10]);
+      const [recordPayModeVal, setRecordPayModeVal] = useState('Cash');
+
+      // Muppettu Member State & Dropdown Filter
+      const [muppettuSearchQuery, setMuppettuSearchQuery] = useState('');
+      const [selectedMuppettuOfferingFilter, setSelectedMuppettuOfferingFilter] = useState('');
+      const [onlyGanapathiHoma, setOnlyGanapathiHoma] = useState(false);
+      const [selectedMuppettuForPay, setSelectedMuppettuForPay] = useState(null);
+
+      // Offering Summary Dropdown Filter State
+      const [summarySearchQuery, setSummarySearchQuery] = useState('');
+
+      // Offering Form
+      const [editingOfferingId, setEditingOfferingId] = useState(null);
+      const [offName, setOffName] = useState('');
+      const [offRate, setOffRate] = useState('');
+      const [offCategory, setOffCategory] = useState('വഴിപാട്');
+      const [offDeity, setOffDeity] = useState(INITIAL_DEITIES[0]);
+      const [newDeityName, setNewDeityName] = useState('');
+
+      // Monthly Member Form
+      const [editingMemberId, setEditingMemberId] = useState(null);
+      const [memName, setMemName] = useState('');
+      const [memStar, setMemStar] = useState(STARS[0]);
+      const [memPhone, setMemPhone] = useState('');
+      const [memSelectedOfferingIds, setMemSelectedOfferingIds] = useState(['off_6']);
+      const [memOccurrence, setMemOccurrence] = useState('ഒന്നാമത്തെ പൂജ');
+      const [memAmount, setMemAmount] = useState('250');
+      const [memPaidUntil, setMemPaidUntil] = useState(MONTH_OPTIONS[10]);
+      const [memDueUntil, setMemDueUntil] = useState(MONTH_OPTIONS[11]);
+      const [memPayMode, setMemPayMode] = useState('Cash');
+
+      // Muppettu Member Form
+      const [editingMuppettuId, setEditingMuppettuId] = useState(null);
+      const [mupName, setMupName] = useState('');
+      const [mupStar, setMupStar] = useState(STARS[0]);
+      const [mupPhone, setMupPhone] = useState('');
+      const [mupSelectedOfferingIds, setMupSelectedOfferingIds] = useState(['off_7']);
+      const [mupOccurrence, setMupOccurrence] = useState('ഒന്നാമത്തെ പൂജ');
+      const [mupAmount, setMupAmount] = useState('200');
+      const [mupPaidUntil, setMupPaidUntil] = useState(MONTH_OPTIONS[10]);
+      const [mupDueUntil, setMupDueUntil] = useState(MONTH_OPTIONS[11]);
+      const [mupPayMode, setMupPayMode] = useState('Cash');
+      const [mupNotes, setMupNotes] = useState('');
+
+      // Staff Form
+      const [staffName, setStaffName] = useState('');
+      const [staffDesig, setStaffDesig] = useState('മേൽശാന്തി');
+      const [staffPhone, setStaffPhone] = useState('');
+      const [staffSalary, setStaffSalary] = useState('');
+
+      // Cart States
+      const [devoteeName, setDevoteeName] = useState('');
+      const [star, setStar] = useState(STARS[0]);
+      const [place, setPlace] = useState('');
+      const [phone, setPhone] = useState('');
+      const [paymentMode, setPaymentMode] = useState('Cash');
+      const [cartItems, setCartItems] = useState([]);
+      const [selectedOfferingId, setSelectedOfferingId] = useState('');
+      const [itemQty, setItemQty] = useState(1);
+      const [customAmount, setCustomAmount] = useState('');
+      const [selectedPrintReceipt, setSelectedPrintReceipt] = useState(null);
+
+      const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+      const [filterMonth, setFilterMonth] = useState('2026-11');
+
+      useEffect(() => {
+        const timer = setInterval(() => {
+          if (window.firebaseModules) {
+            clearInterval(timer);
+            const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, getDatabase } = window.firebaseModules;
+            try {
+              const app = initializeApp(firebaseConfig);
+              const auth = getAuth(app);
+              const rtdb = getDatabase(app);
+              setFb({ app, auth, rtdb });
+
+              signInAnonymously(auth).catch(e => console.warn("Auth fallback", e));
+              onAuthStateChanged(auth, setUser);
+            } catch (e) {
+              console.warn("Firebase Init Error", e);
+            }
+          }
+        }, 100);
+        return () => clearInterval(timer);
+      }, []);
+
+      useEffect(() => {
+        if (!fb) return;
+        const { ref, onValue } = window.firebaseModules;
+
+        const syncPath = (pathName, setter, fallback = []) => {
+          const dbRef = ref(fb.rtdb, `temple_data/${pathName}`);
+          return onValue(dbRef, (snapshot) => {
+            const val = snapshot.val();
+            if (val) {
+              const list = Object.keys(val).map(key => ({ id: key, ...val[key] }));
+              setter(list.reverse());
+            } else {
+              setter(fallback);
+            }
+          });
+        };
+
+        const u1 = syncPath('offerings', setOfferings, INITIAL_OFFERINGS);
+        const u2 = syncPath('receipts', setReceipts);
+        const u3 = syncPath('transactions', setTransactions);
+        const u4 = syncPath('monthlyMembers', setMonthlyMembers);
+        const u5 = syncPath('staffList', setStaffList);
+        const u6 = syncPath('muppettuMembers', setMuppettuMembers);
+        const u7 = syncPath('deities', (data) => {
+          if(data && data.length > 0) setDeities(data.map(d => d.name));
+        });
+
+        const passRef = ref(fb.rtdb, 'temple_data/settings/adminPasscode');
+        const u8 = onValue(passRef, (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            setAdminPasscode(val);
+            localStorage.setItem('temple_admin_passcode', val);
+          }
+        });
+
+        return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); };
+      }, [fb]);
+
+      const addData = async (pathName, data) => {
+        if (fb) {
+          const { ref, push, set } = window.firebaseModules;
+          const dbRef = ref(fb.rtdb, `temple_data/${pathName}`);
+          const newRef = push(dbRef);
+          await set(newRef, { ...data, createdAt: new Date().toISOString() });
+          return newRef.key;
+        }
+      };
+
+      const updateData = async (pathName, id, data) => {
+        if (fb) {
+          const { ref, update } = window.firebaseModules;
+          const dbRef = ref(fb.rtdb, `temple_data/${pathName}/${id}`);
+          await update(dbRef, data);
+        }
+      };
+
+      const deleteData = async (pathName, id) => {
+        if (currentUserRole !== 'admin') {
+          alert('ഈ ഡിലീറ്റ് ചെയ്യാനുള്ള അധികാരം അഡ്മിന് (Admin) മാത്രമുള്ളതാണ്!');
+          return;
+        }
+        if (fb) {
+          const { ref, remove } = window.firebaseModules;
+          const dbRef = ref(fb.rtdb, `temple_data/${pathName}/${id}`);
+          await remove(dbRef);
+        }
+      };
+
+      const handleLoginSubmit = (e) => {
+        e.preventDefault();
+        if (currentUserRole === 'admin') {
+          if (loginPasscode === adminPasscode) {
+            alert('അഡ്മിൻ (Admin) ആയി ലോഗിൻ ചെയ്തു!');
+            setShowLoginModal(false);
+            setLoginPasscode('');
+          } else {
+            alert('തെറ്റായ പാസ്‌കോഡ്!');
+          }
+        } else {
+          const roleNames = {
+            counter1: 'കൗണ്ടർ യൂസർ 1',
+            counter2: 'കൗണ്ടർ യൂസർ 2',
+            counter3: 'കൗണ്ടർ യൂസർ 3'
+          };
+          alert(`${roleNames[currentUserRole] || 'യൂസർ'} ആയി പ്രവർത്തിക്കുന്നു!`);
+          setShowLoginModal(false);
+          setLoginPasscode('');
+        }
+      };
+
+      const handleAddDeity = async () => {
+        if (!newDeityName.trim()) return;
+        const updated = [...deities, newDeityName.trim()];
+        setDeities(updated);
+        await addData('deities', { name: newDeityName.trim() });
+        setNewDeityName('');
+      };
+
+      const handleSaveOffering = async (e) => {
+        e.preventDefault();
+        const obj = { name_ml: offName, rate: Number(offRate), category: offCategory, deity: offDeity };
+        if (editingOfferingId) {
+          await updateData('offerings', editingOfferingId, obj);
+        } else {
+          await addData('offerings', obj);
+        }
+        setShowOfferingModal(false);
+        setOffName(''); setOffRate(''); setEditingOfferingId(null);
+      };
+
+      const toggleMonthlyOfferingId = (offId) => {
+        let updatedList;
+        if (memSelectedOfferingIds.includes(offId)) {
+          updatedList = memSelectedOfferingIds.filter(id => id !== offId);
+        } else {
+          updatedList = [...memSelectedOfferingIds, offId];
+        }
+        setMemSelectedOfferingIds(updatedList);
+
+        const total = updatedList.reduce((sum, id) => {
+          const found = offerings.find(o => o.id === id);
+          return sum + (found ? Number(found.rate) : 0);
+        }, 0);
+        setMemAmount(total.toString());
+      };
+
+      const toggleMuppettuOfferingId = (offId) => {
+        let updatedList;
+        if (mupSelectedOfferingIds.includes(offId)) {
+          updatedList = mupSelectedOfferingIds.filter(id => id !== offId);
+        } else {
+          updatedList = [...mupSelectedOfferingIds, offId];
+        }
+        setMupSelectedOfferingIds(updatedList);
+
+        const total = updatedList.reduce((sum, id) => {
+          const found = offerings.find(o => o.id === id);
+          return sum + (found ? Number(found.rate) : 0);
+        }, 0);
+        setMupAmount(total.toString());
+      };
+
+      const handleSaveMember = async (e) => {
+        e.preventDefault();
+        if (!memName.trim()) {
+          alert('ദയവായി ഭക്തന്റെ പേര് രേഖപ്പെടുത്തുക!');
+          return;
+        }
+        if (memSelectedOfferingIds.length === 0) {
+          alert('ദയവായി കുറഞ്ഞത് ഒരു വഴിപാടങ്കിലും തിരഞ്ഞെടുക്കുക!');
+          return;
+        }
+        const descriptiveNames = memSelectedOfferingIds.map(id => {
+          const found = offerings.find(o => o.id === id);
+          return found ? `${found.name_ml} (${found.deity})` : '';
+        }).filter(Boolean);
+
+        const poojaNameCombined = descriptiveNames.join(', ');
+        
+        const obj = { 
+          name: memName, 
+          star: memStar, 
+          phone: memPhone, 
+          poojaName: poojaNameCombined || 'വഴിപാട്',
+          selectedOfferingIds: memSelectedOfferingIds,
+          occurrence: memOccurrence,
+          amount: Number(memAmount), 
+          paidUntil: memPaidUntil,
+          dueUntil: memDueUntil,
+          paymentMode: memPayMode
+        };
+        if (editingMemberId) {
+          await updateData('monthlyMembers', editingMemberId, obj);
+        } else {
+          await addData('monthlyMembers', obj);
+        }
+        setShowMemberModal(false);
+        setMemName(''); setMemPhone(''); setEditingMemberId(null);
+      };
+
+      const handleSaveMuppettuMember = async (e) => {
+        e.preventDefault();
+        if (!mupName.trim()) {
+          alert('ദയവായി ഭക്തന്റെ പേര് രേഖപ്പെടുത്തുക!');
+          return;
+        }
+        if (mupSelectedOfferingIds.length === 0) {
+          alert('ദയവായി കുറഞ്ഞത് ഒരു വഴിപാടങ്കിലും തിരഞ്ഞെടുക്കുക!');
+          return;
+        }
+        const descriptiveNames = mupSelectedOfferingIds.map(id => {
+          const found = offerings.find(o => o.id === id);
+          return found ? `${found.name_ml} (${found.deity})` : '';
+        }).filter(Boolean);
+
+        const poojaNameCombined = descriptiveNames.join(', ');
+
+        const obj = { 
+          name: mupName, 
+          star: mupStar, 
+          phone: mupPhone, 
+          poojaName: poojaNameCombined || 'മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജ', 
+          selectedOfferingIds: mupSelectedOfferingIds,
+          occurrence: mupOccurrence,
+          amount: Number(mupAmount), 
+          paidUntil: mupPaidUntil,
+          dueUntil: mupDueUntil,
+          paymentMode: mupPayMode,
+          notes: mupNotes
+        };
+        if (editingMuppettuId) {
+          await updateData('muppettuMembers', editingMuppettuId, obj);
+        } else {
+          await addData('muppettuMembers', obj);
+        }
+        setShowMuppettuModal(false);
+        setMupName(''); setMupPhone(''); setMupNotes(''); setEditingMuppettuId(null);
+      };
+
+      const handleConfirmPaymentRecord = async (e) => {
+        e.preventDefault();
+        if (!selectedMemberForPay) return;
+        const date = new Date().toISOString().split('T')[0];
+        const receiptNo = 'MP-' + Math.floor(100000 + Math.random() * 900000);
+
+        await updateData('monthlyMembers', selectedMemberForPay.id, { paidUntil: recordMonthVal, paymentMode: recordPayModeVal });
+        
+        await addData('transactions', {
+          type: 'income',
+          category: 'മാസപൂജ',
+          date,
+          amount: selectedMemberForPay.amount,
+          notes: `മാസപൂജ (${selectedMemberForPay.occurrence || 'പൂജ'}): ${selectedMemberForPay.name} (${recordMonthVal} വരെ) [${recordPayModeVal}]`
+        });
+
+        const receiptObj = {
+          receiptNo,
+          date,
+          devoteeName: selectedMemberForPay.name,
+          star: selectedMemberForPay.star,
+          phone: selectedMemberForPay.phone || '',
+          paymentMode: recordPayModeVal,
+          items: [{ name_ml: `മാസപൂജ: ${selectedMemberForPay.poojaName} (${selectedMemberForPay.occurrence || 'പൂജ'} - ${recordMonthVal} വരെ)`, qty: 1, rate: Number(selectedMemberForPay.amount) }],
+          totalAmount: Number(selectedMemberForPay.amount)
+        };
+        await addData('receipts', receiptObj);
+
+        alert(`${selectedMemberForPay.name}-ന്റെ ${recordMonthVal} വരെയുള്ള മാസപൂജ സ്വീകരിച്ച് രസീത് തയാറാക്കി!`);
+        setShowPayRecordModal(false);
+        setSelectedMemberForPay(null);
+        setSelectedPrintReceipt(receiptObj);
+        setActiveTab('print');
+      };
+
+      const handleConfirmMuppettuPayRecord = async (e) => {
+        e.preventDefault();
+        if (!selectedMuppettuForPay) return;
+        const date = new Date().toISOString().split('T')[0];
+        const receiptNo = 'MV-' + Math.floor(100000 + Math.random() * 900000);
+
+        await updateData('muppettuMembers', selectedMuppettuForPay.id, { paidUntil: recordMonthVal, paymentMode: recordPayModeVal });
+        
+        await addData('transactions', {
+          type: 'income',
+          category: 'മുപ്പെട്ട് വ്യാഴം പൂജ',
+          date,
+          amount: selectedMuppettuForPay.amount,
+          notes: `മുപ്പെട്ട് വ്യാഴം പൂജ (${selectedMuppettuForPay.occurrence || 'പൂജ'}): ${selectedMuppettuForPay.name} (${recordMonthVal} വരെ) [${recordPayModeVal}]`
+        });
+
+        const receiptObj = {
+          receiptNo,
+          date,
+          devoteeName: selectedMuppettuForPay.name,
+          star: selectedMuppettuForPay.star,
+          phone: selectedMuppettuForPay.phone || '',
+          paymentMode: recordPayModeVal,
+          items: [{ name_ml: `മുപ്പെട്ട് വ്യാഴം പൂജ: ${selectedMuppettuForPay.poojaName} (${selectedMuppettuForPay.occurrence || 'പൂജ'} - ${recordMonthVal} വരെ)`, qty: 1, rate: Number(selectedMuppettuForPay.amount) }],
+          totalAmount: Number(selectedMuppettuForPay.amount)
+        };
+        await addData('receipts', receiptObj);
+
+        alert(`${selectedMuppettuForPay.name}-ന്റെ ${recordMonthVal} വരെയുള്ള മുപ്പെട്ട് വ്യാഴം പൂജ സ്വീകരിച്ച് രസീത് തയാറാക്കി!`);
+        setShowMuppettuPayModal(false);
+        setSelectedMuppettuForPay(null);
+        setSelectedPrintReceipt(receiptObj);
+        setActiveTab('print');
+      };
+
+      const handleSaveStaff = async (e) => {
+        e.preventDefault();
+        await addData('staffList', { name: staffName, designation: staffDesig, phone: staffPhone, basicSalary: Number(staffSalary) });
+        setShowStaffModal(false);
+        setStaffName(''); setStaffSalary(''); setStaffPhone('');
+      };
+
+      const handleSaveOtherIncome = async (e) => {
+        e.preventDefault();
+        const date = new Date().toISOString().split('T')[0];
+        await addData('transactions', {
+          type: 'income',
+          category: incCategory,
+          date,
+          amount: Number(incAmount),
+          notes: `${incCategory}: ${incPayerName || 'ഭക്തൻ'} ${incNotes ? `(${incNotes})` : ''} [${incPayMode}]`
+        });
+        alert(`${incCategory} തുക (₹${incAmount}) വരുമാനമായി രേഖപ്പെടുത്തി!`);
+        setShowIncomeModal(false);
+        setIncPayerName(''); setIncAmount(''); setIncNotes('');
+      };
+
+      const handleSaveExpense = async (e) => {
+        e.preventDefault();
+        await addData('transactions', {
+          type: 'expense',
+          category: expCategory,
+          date: expDate || new Date().toISOString().split('T')[0],
+          amount: Number(expAmount),
+          notes: `${expCategory}: ${expNotes}`
+        });
+        alert(`${expCategory} തുക (₹${expAmount}) ചിലവായി രേഖപ്പെടുത്തി!`);
+        setShowExpenseModal(false);
+        setExpAmount(''); setExpNotes('');
+      };
+
+      const handleAddItem = (e) => {
+        e.preventDefault();
+        const off = offerings.find(o => o.id === selectedOfferingId);
+        if (!off) return;
+
+        const rate = Number(customAmount) > 0 ? Number(customAmount) : Number(off.rate);
+        setCartItems(prev => [...prev, {
+          offeringId: off.id,
+          name_ml: off.name_ml,
+          rate,
+          qty: Number(itemQty),
+          deity: off.deity || 'ശ്രീ കോവിൽ',
+          category: off.category || 'വഴിപാട്'
+        }]);
+        setItemQty(1);
+        setCustomAmount('');
+      };
+
+      const totalBillAmount = cartItems.reduce((sum, item) => sum + (item.rate * item.qty), 0);
+
+      const handleSaveBill = async () => {
+        if (!devoteeName.trim()) {
+          alert('ദയവായി ഭക്തന്റെ പേര് രേഖപ്പെടുത്തുക!');
+          return;
+        }
+        if (cartItems.length === 0) {
+          alert('ദയവായി കുറഞ്ഞത് ഒരു വഴിപാടങ്കിലും ചേർക്കുക!');
+          return;
+        }
+
+        const receiptNo = 'VZ-' + Math.floor(100000 + Math.random() * 900000);
+        const date = new Date().toISOString().split('T')[0];
+
+        const receiptObj = {
+          receiptNo,
+          date,
+          devoteeName: devoteeName || 'ഭക്തൻ',
+          star,
+          place,
+          phone,
+          paymentMode,
+          items: cartItems,
+          totalAmount: totalBillAmount
+        };
+
+        await addData('receipts', receiptObj);
+
+        await addData('transactions', {
+          type: 'income',
+          category: 'വഴിപാട്',
+          date,
+          amount: totalBillAmount,
+          notes: `Receipt ${receiptNo}: ${devoteeName || 'ഭക്തൻ'} (${star}) [${paymentMode}]`
+        });
+
+        setSelectedPrintReceipt(receiptObj);
+        setCartItems([]);
+        setDevoteeName('');
+        setPlace('');
+        setPhone('');
+        setActiveTab('print');
+      };
+
+      const filteredDailyTransactions = transactions.filter(tr => tr.date === filterDate);
+      const dailyIncomeSum = filteredDailyTransactions.filter(tr => tr.type === 'income').reduce((sum, tr) => sum + Number(tr.amount), 0);
+      const dailyExpenseSum = filteredDailyTransactions.filter(tr => tr.type === 'expense').reduce((sum, tr) => sum + Number(tr.amount), 0);
+
+      const filteredMonthlyTransactions = transactions.filter(tr => tr.date && tr.date.startsWith(filterMonth));
+      const monthlyIncomeSum = filteredMonthlyTransactions.filter(tr => tr.type === 'income').reduce((sum, tr) => sum + Number(tr.amount), 0);
+      const monthlyExpenseSum = filteredMonthlyTransactions.filter(tr => tr.type === 'expense').reduce((sum, tr) => sum + Number(tr.amount), 0);
+
+      // Monthly members search, Star filter & Dropdown Offering Filter
+      const searchedMembers = monthlyMembers.filter(m => {
+        const matchesQuery = !memberSearchQuery || 
+          (m.name && m.name.toLowerCase().includes(memberSearchQuery.toLowerCase())) || 
+          (m.phone && m.phone.includes(memberSearchQuery));
+        const matchesStar = !selectedStarFilter || m.star === selectedStarFilter;
+        
+        let matchesMala = true;
+        if (onlyMalaVazhipadu) {
+          matchesMala = m.poojaName && m.poojaName.toLowerCase().includes('മാലവഴിപാട്');
+        }
+
+        let matchesOfferingDropdown = true;
+        if (selectedOfferingFilter) {
+          const targetOff = offerings.find(o => o.id === selectedOfferingFilter);
+          if (targetOff) {
+            const hasId = m.selectedOfferingIds && m.selectedOfferingIds.includes(targetOff.id);
+            const hasName = m.poojaName && m.poojaName.includes(targetOff.name_ml);
+            matchesOfferingDropdown = hasId || hasName;
+          }
+        }
+
+        return matchesQuery && matchesStar && matchesMala && matchesOfferingDropdown;
+      });
+
+      // Muppettu members search & Dropdown Offering Filter
+      const searchedMuppettuMembers = muppettuMembers.filter(m => {
+        const matchesQuery = !muppettuSearchQuery || 
+          (m.name && m.name.toLowerCase().includes(muppettuSearchQuery.toLowerCase())) || 
+          (m.phone && m.phone.includes(muppettuSearchQuery)) ||
+          (m.star && m.star.toLowerCase().includes(muppettuSearchQuery.toLowerCase())) ||
+          (m.poojaName && m.poojaName.toLowerCase().includes(muppettuSearchQuery.toLowerCase()));
+
+        let matchesHoma = true;
+        if (onlyGanapathiHoma) {
+          matchesHoma = m.poojaName && (m.poojaName.toLowerCase().includes('ഗണപതി ഹോമം') || m.poojaName.toLowerCase().includes('ഗണപതിഹോമം'));
+        }
+
+        let matchesOfferingDropdown = true;
+        if (selectedMuppettuOfferingFilter) {
+          const targetOff = offerings.find(o => o.id === selectedMuppettuOfferingFilter);
+          if (targetOff) {
+            const hasId = m.selectedOfferingIds && m.selectedOfferingIds.includes(targetOff.id);
+            const hasName = m.poojaName && m.poojaName.includes(targetOff.name_ml);
+            matchesOfferingDropdown = hasId || hasName;
+          }
+        }
+
+        return matchesQuery && matchesHoma && matchesOfferingDropdown;
+      });
+
+      // Calculation for Offering Counts
+      const offeringCountsSummary = {};
+      offerings.forEach(off => {
+        let count = 0;
+        monthlyMembers.forEach(m => {
+          if (m.selectedOfferingIds && m.selectedOfferingIds.includes(off.id)) {
+            count++;
+          } else if (m.poojaName && m.poojaName.includes(off.name_ml)) {
+            count++;
+          }
+        });
+        muppettuMembers.forEach(m => {
+          if (m.selectedOfferingIds && m.selectedOfferingIds.includes(off.id)) {
+            count++;
+          } else if (m.poojaName && m.poojaName.includes(off.name_ml)) {
+            count++;
+          }
+        });
+        receipts.forEach(r => {
+          if (r.items) {
+            r.items.forEach(it => {
+              if (it.name_ml && it.name_ml.includes(off.name_ml)) {
+                count += Number(it.qty || 1);
+              }
+            });
+          }
+        });
+        offeringCountsSummary[off.name_ml] = count;
+      });
+
+      // Filtered offerings for Offering Summary Tab (Dropdown Search)
+      const filteredOfferingsForSummary = offerings.filter(off => {
+        if (!summarySearchQuery) return true;
+        return off.name_ml === summarySearchQuery;
+      });
+
+      return (
+        <div className="flex-1 flex flex-col min-h-screen font-['Manjari']">
+          <header className="bg-amber-950 text-amber-100 p-4 shadow-lg border-b-4 border-amber-500 no-print">
+            <div className="max-w-7xl mx-auto flex justify-between items-center">
+              <div>
+                <h1 className="text-xl md:text-2xl font-black text-amber-200">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                <p className="text-xs text-amber-300">സമ്പൂർണ്ണ ഡിജിറ്റൽ മാനേജ്‌മെന്റ് & വരവ്-ചെലവ് രജിസ്റ്റർ</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className={`text-xs px-3 py-1.5 rounded-full font-bold border ${currentUserRole === 'admin' ? 'bg-amber-800 text-amber-100 border-amber-400' : 'bg-sky-800 text-sky-100 border-sky-400'}`}>
+                  Role: {
+                    currentUserRole === 'admin' ? '🛡️ Admin' : 
+                    currentUserRole === 'counter1' ? '👤 User 1 (Counter 1)' :
+                    currentUserRole === 'counter2' ? '👤 User 2 (Counter 2)' : '👤 User 3 (Counter 3)'
+                  }
+                </div>
+                {currentUserRole === 'admin' && (
+                  <button 
+                    onClick={() => setShowChangePassModal(true)}
+                    className="bg-amber-800 text-amber-100 text-xs px-3 py-1.5 rounded-xl font-bold shadow hover:bg-amber-900 border border-amber-500"
+                  >
+                    🔑 പാസ്‌വേർഡ് മാറ്റുക
+                  </button>
+                )}
+                <button 
+                  onClick={() => setShowLoginModal(true)}
+                  className="bg-amber-200 text-amber-950 text-xs px-3 py-1.5 rounded-xl font-bold shadow hover:bg-amber-300"
+                >
+                  Switch Role / Login
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <nav className="bg-amber-900 text-amber-100 border-b border-amber-800 shadow-md sticky top-0 z-40 no-print">
+            <div className="max-w-7xl mx-auto flex flex-wrap text-xs font-bold p-1 gap-1">
+              <button 
+                onClick={() => setActiveTab('vazhipadu')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'vazhipadu' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                വഴിപാട് കൗണ്ടർ
+              </button>
+              <button 
+                onClick={() => setActiveTab('daily_report')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'daily_report' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                ദിവസേനയുള്ള വരവ്-ചെലവ് (A4)
+              </button>
+              <button 
+                onClick={() => setActiveTab('monthly_report')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'monthly_report' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                മാസവരുമാന റിപ്പോർട്ട് (A4)
+              </button>
+              <button 
+                onClick={() => setActiveTab('master')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'master' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                വഴിപാട് വിവരങ്ങൾ & ദേവന്മാർ
+              </button>
+              <button 
+                onClick={() => setActiveTab('monthly')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'monthly' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                ⭐ മാസപൂജ / നാൾ രജിസ്റ്റർ
+              </button>
+              <button 
+                onClick={() => setActiveTab('muppettu_vyazham')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'muppettu_vyazham' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                🗓️ മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജകൾ
+              </button>
+              <button 
+                onClick={() => setActiveTab('offering_summary')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'offering_summary' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                📊 വഴിപാട് എണ്ണം (Summary)
+              </button>
+              <button 
+                onClick={() => setActiveTab('payroll')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'payroll' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                ജീവനക്കാർ & ശമ്പളം
+              </button>
+              <button 
+                onClick={() => setActiveTab('accounts')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'accounts' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                കണക്കുകൾ & ലെഡ്ജർ
+              </button>
+              <button 
+                onClick={() => setActiveTab('print')}
+                className={`px-3 py-2 rounded-lg transition-colors ${activeTab === 'print' ? 'bg-amber-950 text-amber-200 shadow ring-1 ring-amber-500' : 'hover:bg-amber-800'}`}
+              >
+                രസീത് പ്രിന്റ് (10cm x 8cm)
+              </button>
+            </div>
+          </nav>
+
+          <main className="max-w-7xl w-full mx-auto p-4 flex-1">
+            {/* 1. Vazhipadu Counter */}
+            {activeTab === 'vazhipadu' && (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div className="md:col-span-7 bg-white p-5 rounded-2xl shadow-sm border border-amber-200">
+                  <div className="flex justify-between items-center mb-3 border-b pb-2">
+                    <h2 className="font-bold text-amber-950 text-base">വഴിപാട് / വരുമാന കൗണ്ടർ</h2>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setShowIncomeModal(true)}
+                        className="bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow hover:bg-emerald-800"
+                      >
+                        + മറ്റ് വരുമാനം
+                      </button>
+                      <button 
+                        onClick={() => setShowExpenseModal(true)}
+                        className="bg-rose-700 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow hover:bg-rose-800"
+                      >
+                        - ചിലവുകൾ ചേർക്കുക
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1">ഭക്തന്റെ പേര്</label>
+                      <input 
+                        type="text" 
+                        value={devoteeName} 
+                        onChange={e => setDevoteeName(e.target.value)}
+                        placeholder="പേര്" 
+                        className="w-full px-3 py-1.5 text-xs border rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1">നക്ഷത്രം / നാൾ</label>
+                      <select 
+                        value={star} 
+                        onChange={e => setStar(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs border rounded-xl bg-white"
+                      >
+                        {STARS.map((s, idx) => <option key={idx} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1">സ്ഥലം / വിലാസം</label>
+                      <input 
+                        type="text" 
+                        value={place} 
+                        onChange={e => setPlace(e.target.value)}
+                        placeholder="സ്ഥലം" 
+                        className="w-full px-3 py-1.5 text-xs border rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1">പെയ്‌മെന്റ് രീതി (Payment Mode)</label>
+                      <select 
+                        value={paymentMode} 
+                        onChange={e => setPaymentMode(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs border rounded-xl bg-white font-bold text-amber-900"
+                      >
+                        <option value="Cash">Cash (പണം)</option>
+                        <option value="QR Code">QR Code</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Online">Online Transfer</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 mb-3 space-y-2">
+                    <label className="block text-xs font-bold">വഴിപാട് / അന്നദാനം / സംഭാവന</label>
+                    <div className="flex gap-2">
+                      <select 
+                        value={selectedOfferingId} 
+                        onChange={e => setSelectedOfferingId(e.target.value)}
+                        className="flex-1 px-3 py-1.5 text-xs border rounded-xl bg-white"
+                      >
+                        <option value="">-- തിരഞ്ഞെടുക്കുക --</option>
+                        {offerings.map((off, idx) => (
+                          <option key={off.id ? `${off.id}-${idx}` : idx} value={off.id}>
+                            [{off.category}] {off.name_ml} ({off.deity}) - ₹{off.rate}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={itemQty} 
+                        onChange={e => setItemQty(e.target.value)}
+                        className="w-16 px-2 py-1.5 text-xs border rounded-xl text-center font-bold" 
+                      />
+
+                      <button 
+                        type="button" 
+                        onClick={handleAddItem}
+                        className="bg-amber-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold"
+                      >
+                        ചേർക്കുക
+                      </button>
+                    </div>
+                  </div>
+
+                  <table className="w-full text-xs text-left mb-4 border">
+                    <thead className="bg-amber-100 text-amber-950 font-bold border-b">
+                      <tr>
+                        <th className="p-2">ഇനം</th>
+                        <th className="p-2 text-center">എണ്ണം</th>
+                        <th className="p-2 text-right">തുക</th>
+                        <th className="p-2 text-center"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cartItems.map((item, idx) => (
+                        <tr key={idx} className="border-b">
+                          <td className="p-2 font-bold">{item.name_ml} ({item.deity})</td>
+                          <td className="p-2 text-center">{item.qty}</td>
+                          <td className="p-2 text-right">₹{item.rate * item.qty}</td>
+                          <td className="p-2 text-center">
+                            <button onClick={() => setCartItems(cartItems.filter((_, i) => i !== idx))} className="text-red-500 font-bold">✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="flex justify-between items-center bg-amber-100 p-3 rounded-xl mb-4">
+                    <span className="font-bold text-xs">ആകെ തുക ({paymentMode}):</span>
+                    <span className="text-xl font-black text-amber-950">₹{totalBillAmount}</span>
+                  </div>
+
+                  <button 
+                    onClick={handleSaveBill}
+                    className="w-full bg-emerald-700 text-white py-3 rounded-xl font-extrabold text-sm shadow hover:bg-emerald-800"
+                  >
+                    രസീത് നൽകുക & സേവ് ചെയ്യുക
+                  </button>
+                </div>
+
+                <div className="md:col-span-5 bg-white p-5 rounded-2xl shadow-sm border border-amber-200">
+                  <h2 className="font-bold text-amber-950 text-base mb-3 border-b pb-2">ഇന്നത്തെ രസീതുകൾ</h2>
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {receipts.filter(r => r.date === new Date().toISOString().split('T')[0]).map(rec => (
+                      <div key={rec.id} className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-200 text-xs flex justify-between items-center">
+                        <div>
+                          <div className="font-bold text-slate-900">{rec.devoteeName} ({rec.star})</div>
+                          <div className="text-[10px] text-slate-500">No: {rec.receiptNo} • {rec.paymentMode}</div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-black text-amber-950">₹{rec.totalAmount}</span>
+                          <button 
+                            onClick={() => { setSelectedPrintReceipt(rec); setActiveTab('print'); }}
+                            className="bg-amber-200 text-amber-950 text-[10px] px-2 py-1 rounded font-bold"
+                          >
+                            Print
+                          </button>
+                          {currentUserRole === 'admin' && (
+                            <button onClick={() => deleteData('receipts', rec.id)} className="text-red-500 font-bold text-xs">✕</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Daily Report A4 Tab */}
+            {activeTab === 'daily_report' && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border flex justify-between items-center no-print">
+                  <div className="flex items-center space-x-3">
+                    <label className="text-xs font-bold">തീയതി തിരഞ്ഞെടുക്കുക:</label>
+                    <input 
+                      type="date" 
+                      value={filterDate} 
+                      onChange={e => setFilterDate(e.target.value)}
+                      className="border p-1.5 text-xs rounded-xl"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setShowExpenseModal(true)}
+                      className="bg-rose-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow hover:bg-rose-800"
+                    >
+                      + പുതിയ ചിലവ് ചേർക്കുക
+                    </button>
+                    <button 
+                      onClick={() => window.print()}
+                      className="bg-amber-900 text-amber-100 px-4 py-2 rounded-xl text-xs font-bold shadow"
+                    >
+                      A4 PDF ആയി Save / Print ചെയ്യുക
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-xl border a4-print-page">
+                  <div className="text-center border-b pb-4 mb-4">
+                    <h1 className="text-xl font-black text-amber-950">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                    <h2 className="text-sm font-bold text-slate-700">ദിവസേനയുള്ള വരവ് - ചെലവ് റിപ്പോർട്ട് - {filterDate}</h2>
+                  </div>
+
+                  <table className="w-full text-xs text-left border border-slate-300 mb-6">
+                    <thead className="bg-slate-100 font-bold border-b border-slate-300">
+                      <tr>
+                        <th className="p-2 border-r">തീയതി</th>
+                        <th className="p-2 border-r">വിഭാഗം</th>
+                        <th className="p-2 border-r">വിവരങ്ങൾ</th>
+                        <th className="p-2 border-r text-center">ടൈപ്പ്</th>
+                        <th className="p-2 text-right">തുക</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDailyTransactions.map(tr => (
+                        <tr key={tr.id} className="border-b border-slate-200">
+                          <td className="p-2 border-r">{tr.date}</td>
+                          <td className="p-2 border-r font-bold">{tr.category}</td>
+                          <td className="p-2 border-r text-slate-600">{tr.notes}</td>
+                          <td className="p-2 border-r text-center font-bold">
+                            <span className={`px-2 py-0.5 rounded text-[10px] ${tr.type === 'expense' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                              {tr.type === 'expense' ? 'ചെലവ്' : 'വരവ്'}
+                            </span>
+                          </td>
+                          <td className={`p-2 text-right font-black ${tr.type === 'expense' ? 'text-rose-700' : 'text-emerald-800'}`}>
+                            {tr.type === 'expense' ? '-' : '+'}₹{tr.amount}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="flex justify-between items-center border-t pt-4 bg-amber-50 p-3 rounded-xl font-bold">
+                    <div className="text-emerald-800">ആകെ വരവ്: ₹{dailyIncomeSum}</div>
+                    <div className="text-rose-700">ആകെ ചെലവ്: ₹{dailyExpenseSum}</div>
+                    <div className="text-amber-950 text-sm">നീക്കിയിരിപ്പ് (Balance): ₹{dailyIncomeSum - dailyExpenseSum}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Monthly Report A4 Tab */}
+            {activeTab === 'monthly_report' && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border flex justify-between items-center no-print">
+                  <div className="flex items-center space-x-3">
+                    <label className="text-xs font-bold">മാസം തിരഞ്ഞെടുക്കുക:</label>
+                    <input 
+                      type="month" 
+                      value={filterMonth} 
+                      onChange={e => setFilterMonth(e.target.value)}
+                      className="border p-1.5 text-xs rounded-xl"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => window.print()}
+                    className="bg-amber-900 text-amber-100 px-4 py-2 rounded-xl text-xs font-bold shadow"
+                  >
+                    മാസ റിപ്പോർട്ട് Print / PDF
+                  </button>
+                </div>
+
+                <div className="bg-white p-8 rounded-xl border a4-print-page">
+                  <div className="text-center border-b pb-4 mb-4">
+                    <h1 className="text-xl font-black text-amber-950">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                    <h2 className="text-sm font-bold text-slate-700">മാസവരുമാന / ചെലവ് റിപ്പോർട്ട് - {filterMonth}</h2>
+                  </div>
+
+                  <table className="w-full text-xs text-left border border-slate-300 mb-6">
+                    <thead className="bg-slate-100 font-bold border-b border-slate-300">
+                      <tr>
+                        <th className="p-2 border-r">തീയതി</th>
+                        <th className="p-2 border-r">വിഭാഗം</th>
+                        <th className="p-2 border-r">വിവരങ്ങൾ</th>
+                        <th className="p-2 border-r text-center">ടൈപ്പ്</th>
+                        <th className="p-2 text-right">തുക</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredMonthlyTransactions.map(tr => (
+                        <tr key={tr.id} className="border-b border-slate-200">
+                          <td className="p-2 border-r">{tr.date}</td>
+                          <td className="p-2 border-r font-bold">{tr.category}</td>
+                          <td className="p-2 border-r text-slate-600">{tr.notes}</td>
+                          <td className="p-2 border-r text-center font-bold">
+                            <span className={`px-2 py-0.5 rounded text-[10px] ${tr.type === 'expense' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                              {tr.type === 'expense' ? 'ചെലവ്' : 'വരവ്'}
+                            </span>
+                          </td>
+                          <td className={`p-2 text-right font-black ${tr.type === 'expense' ? 'text-rose-700' : 'text-emerald-800'}`}>
+                            {tr.type === 'expense' ? '-' : '+'}₹{tr.amount}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="flex justify-between items-center border-t pt-4 bg-amber-50 p-3 rounded-xl font-bold">
+                    <div className="text-emerald-800">മാസ ആകെ വരവ്: ₹{monthlyIncomeSum}</div>
+                    <div className="text-rose-700">മാസ ആകെ ചെലവ്: ₹{monthlyExpenseSum}</div>
+                    <div className="text-amber-950 text-sm">അവസാന ബാലൻസ്: ₹{monthlyIncomeSum - monthlyExpenseSum}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 2. Offerings Master Management */}
+            {activeTab === 'master' && (
+              <div className="space-y-6">
+                <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm space-y-3">
+                  <h3 className="font-extrabold text-amber-950 text-sm border-b pb-2">ദേവതകളുടെ വിവരങ്ങൾ ചേർക്കുക / കാണുക</h3>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="പുതിയ ദേവന്റെ പേര് ചേർക്കുക" 
+                      value={newDeityName} 
+                      onChange={e => setNewDeityName(e.target.value)}
+                      className="px-3 py-1.5 border text-xs rounded-xl flex-1 max-w-xs"
+                    />
+                    <button onClick={handleAddDeity} className="bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold">+ ചേർക്കുക</button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {deities.map((d, i) => (
+                      <span key={i} className="bg-amber-100 border border-amber-300 text-amber-950 px-3 py-1 rounded-full text-xs font-bold">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm space-y-4">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <h2 className="font-extrabold text-amber-950 text-base">വഴിപാട് വിവരങ്ങളും നിരക്കുകളും (Master)</h2>
+                    {currentUserRole === 'admin' && (
+                      <button 
+                        onClick={() => { setEditingOfferingId(null); setOffName(''); setOffRate(''); setShowOfferingModal(true); }}
+                        className="bg-amber-800 text-amber-100 px-3 py-1.5 rounded-xl text-xs font-bold"
+                      >
+                        + പുതിയ വഴിപാട് ചേർക്കുക
+                      </button>
+                    )}
+                  </div>
+
+                  <table className="w-full text-xs text-left border">
+                    <thead className="bg-amber-100 text-amber-950 font-bold border-b">
+                      <tr>
+                        <th className="p-2">വിഭാഗം</th>
+                        <th className="p-2">വഴിപാട് / ഇനം</th>
+                        <th className="p-2">ദേവത</th>
+                        <th className="p-2 text-right">നിരക്ക് (₹)</th>
+                        {currentUserRole === 'admin' && <th className="p-2 text-center">നടപടി</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {offerings.map((off) => (
+                        <tr key={off.id} className="border-b">
+                          <td className="p-2"><span className="bg-amber-200 text-amber-950 px-2 py-0.5 rounded font-bold">{off.category}</span></td>
+                          <td className="p-2 font-bold">{off.name_ml}</td>
+                          <td className="p-2 font-semibold text-slate-700">{off.deity}</td>
+                          <td className="p-2 text-right font-black">₹{off.rate}</td>
+                          {currentUserRole === 'admin' && (
+                            <td className="p-2 text-center space-x-2">
+                              <button 
+                                onClick={() => {
+                                  setEditingOfferingId(off.id);
+                                  setOffName(off.name_ml);
+                                  setOffRate(off.rate);
+                                  setOffCategory(off.category);
+                                  setOffDeity(off.deity);
+                                  setShowOfferingModal(true);
+                                }} 
+                                className="text-amber-800 font-bold"
+                              >
+                                Edit
+                              </button>
+                              <button onClick={() => deleteData('offerings', off.id)} className="text-red-600 font-bold">Delete</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 3. Monthly Pooja Register */}
+            {activeTab === 'monthly' && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 no-print">
+                  <div>
+                    <h2 className="font-extrabold text-amber-950 text-base">മാസപൂജ / നാൾ രജിസ്റ്റർ</h2>
+                    <p className="text-[10px] text-slate-500">മൊത്തം ഭക്തർ: {monthlyMembers.length}</p>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <select
+                      value={selectedOfferingFilter}
+                      onChange={e => setSelectedOfferingFilter(e.target.value)}
+                      className="px-3 py-1.5 border text-xs rounded-xl bg-amber-50 font-bold text-amber-950"
+                    >
+                      <option value="">-- എല്ലാ വഴിപാടുകളും (All Offerings) --</option>
+                      {offerings.map(off => (
+                        <option key={off.id} value={off.id}>🎯 {off.name_ml} ({off.deity})</option>
+                      ))}
+                    </select>
+
+                    <button 
+                      onClick={() => setOnlyMalaVazhipadu(!onlyMalaVazhipadu)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        onlyMalaVazhipadu 
+                          ? 'bg-amber-900 text-white border-amber-950 ring-2 ring-amber-500' 
+                          : 'bg-amber-100 text-amber-950 border-amber-300 hover:bg-amber-200'
+                      }`}
+                    >
+                      📿 {onlyMalaVazhipadu ? 'മാലവഴിപാട് മാത്രം (Active)' : 'മാലവഴിപാട് മാത്രം'}
+                    </button>
+
+                    <input 
+                      type="text"
+                      placeholder="🔍 പേര് / ഫോൺ സെർച്ച് ചെയ്യുക..."
+                      value={memberSearchQuery}
+                      onChange={e => setMemberSearchQuery(e.target.value)}
+                      className="px-3 py-1.5 border text-xs rounded-xl flex-1 md:w-36"
+                    />
+                    <button 
+                      onClick={() => setShowStarSummary(!showStarSummary)}
+                      className="bg-amber-100 text-amber-950 border border-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold"
+                    >
+                      {showStarSummary ? 'നാൾ പാനൽ മറയ്ക്കുക' : '⭐ നാൾ ഫിൽട്ടർ'}
+                    </button>
+                    <button 
+                      onClick={() => window.print()}
+                      className="bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow"
+                    >
+                      A4 PDF / Print
+                    </button>
+                    <button 
+                      onClick={() => { 
+                        setEditingMemberId(null); 
+                        setMemName(''); 
+                        setMemStar(STARS[0]);
+                        setMemPhone(''); 
+                        setMemSelectedOfferingIds([offerings[0]?.id || 'off_1']);
+                        setMemOccurrence('ഒന്നാമത്തെ പൂജ');
+                        setMemAmount(offerings[0]?.rate?.toString() || '20');
+                        setMemPaidUntil(MONTH_OPTIONS[10]);
+                        setMemDueUntil(MONTH_OPTIONS[11]);
+                        setMemPayMode('Cash');
+                        setShowMemberModal(true); 
+                      }}
+                      className="bg-amber-800 text-amber-100 px-3 py-1.5 rounded-xl text-xs font-bold shadow hover:bg-amber-900"
+                    >
+                      + പുതിയ ഭക്തനെ ചേർക്കുക
+                    </button>
+                  </div>
+                </div>
+
+                {showStarSummary && (
+                  <div className="bg-amber-100/70 p-4 rounded-2xl border border-amber-300 no-print space-y-3">
+                    <div className="flex justify-between items-center border-b border-amber-300 pb-1">
+                      <h3 className="font-bold text-xs text-amber-950">
+                        നാളുകളിൽ ക്ലിക്ക് ചെയ്താൽ ആ നാളിൽ പൂജ ബുക്ക് ചെയ്തവരുടെ വിവരങ്ങൾ താഴെ വരികളായി കാണാം:
+                      </h3>
+                      {selectedStarFilter && (
+                        <button 
+                          onClick={() => setSelectedStarFilter('')}
+                          className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold"
+                        >
+                          എല്ലാ നാളുകളും കാണിക്കുക (Show All)
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-9 gap-2 text-center text-xs">
+                      {STARS.map((starName, i) => {
+                        const count = monthlyMembers.filter(m => m.star === starName).length;
+                        const isSelected = selectedStarFilter === starName;
+                        return (
+                          <div 
+                            key={i} 
+                            onClick={() => setSelectedStarFilter(isSelected ? '' : starName)}
+                            className={`p-2 rounded-xl border cursor-pointer transition-all shadow-xs ${
+                              isSelected 
+                                ? 'bg-amber-900 text-white border-amber-950 ring-2 ring-amber-500 scale-105' 
+                                : 'bg-white hover:bg-amber-200/60 border-amber-200 text-slate-800'
+                            }`}
+                          >
+                            <div className="font-bold text-[11px]">{starName}</div>
+                            <div className={`font-black text-xs ${isSelected ? 'text-amber-200' : 'text-amber-950'}`}>{count} പേർ</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {(selectedStarFilter || onlyMalaVazhipadu || selectedOfferingFilter) && (
+                  <div className="bg-amber-900 text-amber-100 p-2.5 rounded-xl text-xs font-bold flex justify-between items-center">
+                    <span>
+                      {selectedStarFilter && <span>⭐ നാൾ: <strong>"{selectedStarFilter}"</strong> </span>}
+                      {onlyMalaVazhipadu && <span>📿 <strong>മാലവഴിപാട്</strong> മാത്രം </span>}
+                      {selectedOfferingFilter && (
+                        <span>🎯 വഴിപാട്: <strong>{offerings.find(o => o.id === selectedOfferingFilter)?.name_ml}</strong> </span>
+                      )}
+                      ({searchedMembers.length} പേർ കണ്ടെത്തി)
+                    </span>
+                    <button 
+                      onClick={() => { setSelectedStarFilter(''); setOnlyMalaVazhipadu(false); setSelectedOfferingFilter(''); }}
+                      className="bg-amber-200 text-amber-950 px-2 py-1 rounded text-[10px]"
+                    >
+                      എല്ലാ ഫിൽട്ടറുകളും മാറ്റുക ✕
+                    </button>
+                  </div>
+                )}
+
+                <div className="bg-white p-6 rounded-2xl border a4-print-page">
+                  <div className="hidden print:block text-center border-b pb-3 mb-4">
+                    <h1 className="text-xl font-black text-amber-950">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                    <h2 className="text-sm font-bold text-slate-700">
+                      മാസപൂജ / നാൾ വഴിപാടുകാരുടെ രജിസ്റ്റർ 
+                      {selectedStarFilter ? ` (${selectedStarFilter} നാൾ)` : ''}
+                      {selectedOfferingFilter ? ` [വഴിപാട്: ${offerings.find(o => o.id === selectedOfferingFilter)?.name_ml}]` : ''}
+                    </h2>
+                  </div>
+
+                  <table className="w-full text-xs text-left border">
+                    <thead className="bg-amber-100 text-amber-950 font-bold border-b">
+                      <tr>
+                        <th className="p-2 border-r">പേര് & വിളിപ്പേര്</th>
+                        <th className="p-2 border-r">മൊബൈൽ നമ്പർ</th>
+                        <th className="p-2 border-r">നക്ഷത്രം</th>
+                        <th className="p-2 border-r">പൂജകൾ & ദേവന്മാർ</th>
+                        <th className="p-2 border-r">പൂജ ക്രമം (Description)</th>
+                        <th className="p-2 border-r text-right">തുക</th>
+                        <th className="p-2 border-r">അടച്ച മാസം</th>
+                        <th className="p-2 border-r">ബാക്കി മാസം</th>
+                        <th className="p-2 text-center no-print">നടപടി (Edit / Delete)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchedMembers.length > 0 ? (
+                        searchedMembers.map(m => (
+                          <tr key={m.id} className="border-b hover:bg-amber-50/40">
+                            <td className="p-2 border-r font-bold text-slate-900">{m.name}</td>
+                            <td className="p-2 border-r font-bold text-emerald-800">
+                              {m.phone ? (
+                                <a href={`tel:${m.phone}`} className="flex items-center gap-1 hover:underline">
+                                  📞 {m.phone}
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 font-normal">നമ്പർ ലഭ്യമല്ല</span>
+                              )}
+                            </td>
+                            <td className="p-2 border-r font-bold text-amber-950">{m.star}</td>
+                            <td className="p-2 border-r font-bold text-amber-900">{m.poojaName}</td>
+                            <td className="p-2 border-r font-semibold text-slate-700 bg-amber-50/50">{m.occurrence || 'ഒന്നാമത്തെ പൂജ'}</td>
+                            <td className="p-2 border-r text-right font-black">₹{m.amount}</td>
+                            <td className="p-2 border-r font-bold text-emerald-800">{m.paidUntil || 'N/A'}</td>
+                            <td className="p-2 border-r font-bold text-rose-700">{m.dueUntil || 'N/A'}</td>
+                            <td className="p-2 text-center space-x-1 no-print">
+                              <button 
+                                onClick={() => {
+                                  setSelectedMemberForPay(m);
+                                  setRecordMonthVal(m.paidUntil || MONTH_OPTIONS[10]);
+                                  setRecordPayModeVal(m.paymentMode || 'Cash');
+                                  setShowPayRecordModal(true);
+                                }}
+                                className="bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow hover:bg-emerald-800"
+                              >
+                                Cash Recd & Print
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setEditingMemberId(m.id);
+                                  setMemName(m.name || '');
+                                  setMemStar(m.star || STARS[0]);
+                                  setMemPhone(m.phone || '');
+                                  setMemSelectedOfferingIds(m.selectedOfferingIds || []);
+                                  setMemOccurrence(m.occurrence || 'ഒന്നാമത്തെ പൂജ');
+                                  setMemAmount(m.amount || '');
+                                  setMemPaidUntil(m.paidUntil || MONTH_OPTIONS[10]);
+                                  setMemDueUntil(m.dueUntil || MONTH_OPTIONS[11]);
+                                  setMemPayMode(m.paymentMode || 'Cash');
+                                  setShowMemberModal(true);
+                                }}
+                                className="bg-amber-200 text-amber-950 hover:bg-amber-300 font-bold px-2 py-1 rounded text-[10px]"
+                              >
+                                Edit ✏️
+                              </button>
+                              {currentUserRole === 'admin' && (
+                                <button onClick={() => {
+                                  if (confirm(`${m.name}-ന്റെ മാസപൂജ വിവരങ്ങൾ ഡിലീറ്റ് ചെയ്യണമോ?`)) {
+                                    deleteData('monthlyMembers', m.id);
+                                  }
+                                }} className="bg-rose-100 text-rose-700 hover:bg-rose-200 font-bold px-2 py-1 rounded text-[10px]">
+                                  Delete 🗑️
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="9" className="p-4 text-center text-slate-400">
+                            തിരഞ്ഞെടുത്ത ഫിൽട്ടറുകളിൽ ബുക്ക് ചെയ്തവരുടെ വിവരങ്ങൾ ഒന്നും ലഭ്യമല്ല.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Muppettu Vyazham Tab */}
+            {activeTab === 'muppettu_vyazham' && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 no-print">
+                  <div>
+                    <h2 className="font-extrabold text-amber-950 text-base">🗓️ മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജകൾ രജിസ്റ്റർ</h2>
+                    <p className="text-[10px] text-slate-500">മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജകൾ ചെയ്യുന്ന ഭക്തരുടെ വിവരങ്ങൾ | മൊത്തം: {muppettuMembers.length} പേർ</p>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <select
+                      value={selectedMuppettuOfferingFilter}
+                      onChange={e => setSelectedMuppettuOfferingFilter(e.target.value)}
+                      className="px-3 py-1.5 border text-xs rounded-xl bg-amber-50 font-bold text-amber-950"
+                    >
+                      <option value="">-- എല്ലാ വഴിപാടുകളും (All Offerings) --</option>
+                      {offerings.map(off => (
+                        <option key={off.id} value={off.id}>🎯 {off.name_ml} ({off.deity})</option>
+                      ))}
+                    </select>
+
+                    <button 
+                      onClick={() => setOnlyGanapathiHoma(!onlyGanapathiHoma)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        onlyGanapathiHoma 
+                          ? 'bg-amber-900 text-white border-amber-950 ring-2 ring-amber-500' 
+                          : 'bg-amber-100 text-amber-950 border-amber-300 hover:bg-amber-200'
+                      }`}
+                    >
+                      🥥 {onlyGanapathiHoma ? 'മഹാഗണപതിഹോമം മാത്രം (Active)' : 'മഹാഗണപതിഹോമം മാത്രം'}
+                    </button>
+
+                    <input 
+                      type="text"
+                      placeholder="🔍 പേര് / ഫോൺ സെർച്ച് ചെയ്യുക..."
+                      value={muppettuSearchQuery}
+                      onChange={e => setMuppettuSearchQuery(e.target.value)}
+                      className="px-3 py-1.5 border text-xs rounded-xl flex-1 md:w-36"
+                    />
+                    <button 
+                      onClick={() => window.print()}
+                      className="bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow"
+                    >
+                      A4 Print / PDF
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setEditingMuppettuId(null);
+                        setMupName('');
+                        setMupStar(STARS[0]);
+                        setMupPhone('');
+                        setMupSelectedOfferingIds([offerings[0]?.id || 'off_1']);
+                        setMupOccurrence('ഒന്നാമത്തെ പൂജ');
+                        setMupAmount(offerings[0]?.rate?.toString() || '20');
+                        setMupPaidUntil(MONTH_OPTIONS[10]);
+                        setMupDueUntil(MONTH_OPTIONS[11]);
+                        setMupPayMode('Cash');
+                        setMupNotes('');
+                        setShowMuppettuModal(true);
+                      }}
+                      className="bg-amber-800 text-amber-100 px-3 py-1.5 rounded-xl text-xs font-bold shadow hover:bg-amber-900"
+                    >
+                      + പുതിയ പൂജ ചേർക്കുക
+                    </button>
+                  </div>
+                </div>
+
+                {(onlyGanapathiHoma || selectedMuppettuOfferingFilter) && (
+                  <div className="bg-amber-900 text-amber-100 p-2.5 rounded-xl text-xs font-bold flex justify-between items-center">
+                    <span>
+                      {onlyGanapathiHoma && <span>🥥 <strong>മഹാഗണപതിഹോമം</strong> മാത്രം </span>}
+                      {selectedMuppettuOfferingFilter && (
+                        <span>🎯 വഴിപാട്: <strong>{offerings.find(o => o.id === selectedMuppettuOfferingFilter)?.name_ml}</strong> </span>
+                      )}
+                      ({searchedMuppettuMembers.length} പേർ കണ്ടെത്തി)
+                    </span>
+                    <button onClick={() => { setOnlyGanapathiHoma(false); setSelectedMuppettuOfferingFilter(''); }} className="bg-amber-200 text-amber-950 px-2 py-1 rounded text-[10px]">ഫിൽട്ടർ മാറ്റുക ✕</button>
+                  </div>
+                )}
+
+                <div className="bg-white p-6 rounded-2xl border a4-print-page">
+                  <div className="hidden print:block text-center border-b pb-3 mb-4">
+                    <h1 className="text-xl font-black text-amber-950">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                    <h2 className="text-sm font-bold text-slate-700">മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജകൾ ചെയ്യുന്ന ഭക്തരുടെ രജിസ്റ്റർ</h2>
+                  </div>
+
+                  <table className="w-full text-xs text-left border">
+                    <thead className="bg-amber-100 text-amber-950 font-bold border-b">
+                      <tr>
+                        <th className="p-2 border-r">പേര്</th>
+                        <th className="p-2 border-r">മൊബൈൽ നമ്പർ</th>
+                        <th className="p-2 border-r">നക്ഷത്രം</th>
+                        <th className="p-2 border-r">പൂജകൾ & ദേവന്മാർ</th>
+                        <th className="p-2 border-r">പൂജ ക്രമം (Description)</th>
+                        <th className="p-2 border-r text-right">തുക</th>
+                        <th className="p-2 border-r">അടച്ച മാസം</th>
+                        <th className="p-2 border-r">ബാക്കി മാസം</th>
+                        <th className="p-2 border-r">കുറിപ്പ്</th>
+                        <th className="p-2 text-center no-print">നടപടി (Edit / Delete)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchedMuppettuMembers.length > 0 ? (
+                        searchedMuppettuMembers.map(m => (
+                          <tr key={m.id} className="border-b hover:bg-amber-50/40">
+                            <td className="p-2 border-r font-bold text-slate-900">{m.name}</td>
+                            <td className="p-2 border-r font-bold text-emerald-800">
+                              {m.phone ? (
+                                <a href={`tel:${m.phone}`} className="flex items-center gap-1 hover:underline">
+                                  📞 {m.phone}
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 font-normal">നമ്പർ ലഭ്യമല്ല</span>
+                              )}
+                            </td>
+                            <td className="p-2 border-r font-bold text-amber-950">{m.star}</td>
+                            <td className="p-2 border-r font-bold text-amber-900">{m.poojaName}</td>
+                            <td className="p-2 border-r font-semibold text-slate-700 bg-amber-50/50">{m.occurrence || 'ഒന്നാമത്തെ പൂജ'}</td>
+                            <td className="p-2 border-r text-right font-black">₹{m.amount}</td>
+                            <td className="p-2 border-r font-bold text-emerald-800">{m.paidUntil || 'N/A'}</td>
+                            <td className="p-2 border-r font-bold text-rose-700">{m.dueUntil || 'N/A'}</td>
+                            <td className="p-2 border-r text-slate-600">{m.notes || '-'}</td>
+                            <td className="p-2 text-center space-x-1 no-print">
+                              <button 
+                                onClick={() => {
+                                  setSelectedMuppettuForPay(m);
+                                  setRecordMonthVal(m.paidUntil || MONTH_OPTIONS[10]);
+                                  setRecordPayModeVal(m.paymentMode || 'Cash');
+                                  setShowMuppettuPayModal(true);
+                                }}
+                                className="bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow hover:bg-emerald-800"
+                              >
+                                Cash Recd & Print
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setEditingMuppettuId(m.id);
+                                  setMupName(m.name || '');
+                                  setMupStar(m.star || STARS[0]);
+                                  setMupPhone(m.phone || '');
+                                  setMupSelectedOfferingIds(m.selectedOfferingIds || []);
+                                  setMupOccurrence(m.occurrence || 'ഒന്നാമത്തെ പൂജ');
+                                  setMupAmount(m.amount || '');
+                                  setMupPaidUntil(m.paidUntil || MONTH_OPTIONS[10]);
+                                  setMupDueUntil(m.dueUntil || MONTH_OPTIONS[11]);
+                                  setMupPayMode(m.paymentMode || 'Cash');
+                                  setMupNotes(m.notes || '');
+                                  setShowMuppettuModal(true);
+                                }}
+                                className="bg-amber-200 text-amber-950 hover:bg-amber-300 font-bold px-2 py-1 rounded text-[10px]"
+                              >
+                                Edit ✏️
+                              </button>
+                              {currentUserRole === 'admin' && (
+                                <button 
+                                  onClick={() => {
+                                    if (confirm(`${m.name}-ന്റെ വിവരങ്ങൾ ഡിലീറ്റ് ചെയ്യണമോ?`)) {
+                                      deleteData('muppettuMembers', m.id);
+                                    }
+                                  }} 
+                                  className="bg-rose-100 text-rose-700 hover:bg-rose-200 font-bold px-2 py-1 rounded text-[10px]"
+                                >
+                                  Delete 🗑️
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="10" className="p-4 text-center text-slate-400">
+                            മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജ ചെയ്തവരുടെ വിവരങ്ങൾ ഒന്നും ലഭ്യമല്ല.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 5. Offering Summary Tab with Dropdown Search */}
+            {activeTab === 'offering_summary' && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 no-print">
+                  <div>
+                    <h2 className="font-extrabold text-amber-950 text-base">📊 വഴിപാട് എണ്ണങ്ങളുടെ സംഗ്രഹ പട്ടിക (Offering Summary)</h2>
+                    <p className="text-[10px] text-slate-500">ഓരോ വഴിപാടും എത്ര എണ്ണം വീതം നടന്നു എന്നതിന്റെ കൃത്യമായ കണക്ക് ഇവിടെ പരിശോധിക്കാം.</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    {/* വഴിപാട് സെർച്ച് ചെയ്യാനുള്ള Dropdown Select Box */}
+                    <select 
+                      value={summarySearchQuery}
+                      onChange={e => setSummarySearchQuery(e.target.value)}
+                      className="px-3 py-1.5 border text-xs rounded-xl flex-1 md:w-72 bg-amber-50 font-bold text-amber-950"
+                    >
+                      <option value="">-- എല്ലാ വഴിപാടുകളും കാണിക്കുക (All Offerings) --</option>
+                      {offerings.map(off => (
+                        <option key={off.id} value={off.name_ml}>🎯 {off.name_ml} ({off.deity})</option>
+                      ))}
+                    </select>
+
+                    {summarySearchQuery && (
+                      <button 
+                        onClick={() => setSummarySearchQuery('')}
+                        className="bg-rose-100 text-rose-700 px-2.5 py-1.5 rounded-xl text-xs font-bold"
+                      >
+                        Clear ✕
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => window.print()}
+                      className="bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow"
+                    >
+                      Print / PDF
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border a4-print-page">
+                  <div className="hidden print:block text-center border-b pb-3 mb-4">
+                    <h1 className="text-xl font-black text-amber-950">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                    <h2 className="text-sm font-bold text-slate-700">വഴിപാട് എണ്ണങ്ങളുടെ സംഗ്രഹ പട്ടിക (Offering Count Summary)</h2>
+                  </div>
+
+                  <table className="w-full text-xs text-left border">
+                    <thead className="bg-amber-100 text-amber-950 font-bold border-b">
+                      <tr>
+                        <th className="p-3 border-r">വിഭാഗം</th>
+                        <th className="p-3 border-r">വഴിപാടിന്റെ പേര്</th>
+                        <th className="p-3 border-r">ദേവത</th>
+                        <th className="p-3 border-r text-right">നിരക്ക് (₹)</th>
+                        <th className="p-3 text-center bg-amber-200">ആകെ നടന്ന എണ്ണം (Count)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredOfferingsForSummary.length > 0 ? (
+                        filteredOfferingsForSummary.map((off, idx) => (
+                          <tr key={off.id || idx} className="border-b hover:bg-amber-50/50">
+                            <td className="p-3 border-r"><span className="bg-amber-100 text-amber-950 px-2 py-0.5 rounded font-bold">{off.category}</span></td>
+                            <td className="p-3 border-r font-extrabold text-slate-900 text-sm">{off.name_ml}</td>
+                            <td className="p-3 border-r font-semibold text-slate-700">{off.deity}</td>
+                            <td className="p-3 border-r text-right font-bold">₹{off.rate}</td>
+                            <td className="p-3 text-center font-black text-base text-emerald-800 bg-amber-50">
+                              {offeringCountsSummary[off.name_ml] || 0} എണ്ണം
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5" className="p-4 text-center text-slate-400">
+                            വഴിപാടുകൾ ഒന്നും കണ്ടെത്തിയില്ല.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 6. Staff Payroll */}
+            {activeTab === 'payroll' && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border flex justify-between items-center no-print">
+                  <h2 className="font-extrabold text-amber-950 text-base">ജീവനക്കാരും ശമ്പള വിതരണവും</h2>
+                  <div className="space-x-2">
+                    <button 
+                      onClick={() => window.print()}
+                      className="bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow"
+                    >
+                      List PDF / Print
+                    </button>
+                    {currentUserRole === 'admin' && (
+                      <button 
+                        onClick={() => setShowStaffModal(true)}
+                        className="bg-amber-800 text-amber-100 px-3 py-1.5 rounded-xl text-xs font-bold"
+                      >
+                        + ജീവനക്കാരനെ ചേർക്കുക
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border a4-print-page">
+                  <div className="hidden print:block text-center border-b pb-3 mb-4">
+                    <h1 className="text-xl font-black text-amber-950">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                    <h2 className="text-sm font-bold text-slate-700">ജീവനക്കാരുടെ ശമ്പള പട്ടിക</h2>
+                  </div>
+
+                  <table className="w-full text-xs text-left border">
+                    <thead className="bg-amber-100 text-amber-950 font-bold border-b">
+                      <tr>
+                        <th className="p-2 border-r">പേര്</th>
+                        <th className="p-2 border-r">തസ്തിക</th>
+                        <th className="p-2 border-r">ഫോൺ</th>
+                        <th className="p-2 border-r text-right">അടിസ്ഥാന ശമ്പളം</th>
+                        <th className="p-2 text-center no-print">നടപടി</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staffList.map(s => (
+                        <tr key={s.id} className="border-b">
+                          <td className="p-2 border-r font-bold">{s.name}</td>
+                          <td className="p-2 border-r font-semibold">{s.designation}</td>
+                          <td className="p-2 border-r">{s.phone || 'N/A'}</td>
+                          <td className="p-2 border-r text-right font-black">₹{s.basicSalary}</td>
+                          <td className="p-2 text-center space-x-2 no-print">
+                            <button 
+                              onClick={async () => {
+                                const date = new Date().toISOString().split('T')[0];
+                                await addData('transactions', { type: 'expense', category: 'ജീവനക്കാരുടെ ശമ്പളം', amount: s.basicSalary, date, notes: `Salary: ${s.name}` });
+                                alert(`${s.name}-ന്റെ ശമ്പളം നൽകി കണക്കിലേക്ക് രേഖപ്പെടുത്തി!`);
+                              }}
+                              className="bg-emerald-700 text-white px-2.5 py-1 rounded font-bold text-[10px]"
+                            >
+                              ശമ്പളം നൽകുക
+                            </button>
+                            {currentUserRole === 'admin' && (
+                              <button onClick={() => deleteData('staffList', s.id)} className="text-red-600 font-bold">Delete</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 7. Accounts Dashboard & Ledger */}
+            {activeTab === 'accounts' && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border flex justify-between items-center no-print">
+                  <h2 className="font-extrabold text-amber-950 text-base">ക്ഷേത്ര ലെഡ്ജർ (വരവ് ചിലവ് കണക്കുകൾ)</h2>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setShowIncomeModal(true)}
+                      className="bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow"
+                    >
+                      + വരുമാനം ചേർക്കുക
+                    </button>
+                    <button 
+                      onClick={() => setShowExpenseModal(true)}
+                      className="bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow"
+                    >
+                      + ചിലവ് ചേർക്കുക
+                    </button>
+                    <button 
+                      onClick={() => window.print()}
+                      className="bg-slate-800 text-white px-4 py-1.5 rounded-xl text-xs font-bold shadow"
+                    >
+                      Ledger A4 PDF / Print
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border a4-print-page">
+                  <div className="hidden print:block text-center border-b pb-3 mb-4">
+                    <h1 className="text-xl font-black text-amber-950">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h1>
+                    <h2 className="text-sm font-bold text-slate-700">വരവ് - ചെലവ് ലെഡ്ജർ രജിസ്റ്റർ</h2>
+                  </div>
+
+                  <table className="w-full text-xs text-left border">
+                    <thead className="bg-amber-100 text-slate-800 font-bold border-b">
+                      <tr>
+                        <th className="p-2 border-r">തീയതി</th>
+                        <th className="p-2 border-r">വിഭാഗം</th>
+                        <th className="p-2 border-r">വിവരങ്ങൾ</th>
+                        <th className="p-2 border-r text-center">ടൈപ്പ്</th>
+                        <th className="p-2 border-r text-right">തുക</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map(tr => (
+                        <tr key={tr.id} className="border-b">
+                          <td className="p-2 border-r">{tr.date}</td>
+                          <td className="p-2 border-r font-bold">{tr.category}</td>
+                          <td className="p-2 border-r text-slate-600">{tr.notes}</td>
+                          <td className="p-2 border-r text-center font-bold">
+                            <span className={`px-2 py-0.5 rounded text-[10px] ${tr.type === 'expense' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                              {tr.type === 'expense' ? 'ചെലവ്' : 'വരവ്'}
+                            </span>
+                          </td>
+                          <td className={`p-2 border-r text-right font-black ${tr.type === 'expense' ? 'text-rose-700' : 'text-emerald-800'}`}>
+                            {tr.type === 'expense' ? '-' : '+'}₹{tr.amount}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 8. Print Setup (10cm x 8cm) */}
+            {activeTab === 'print' && (
+              <div className="flex flex-col items-center justify-center space-y-4 py-4">
+                <button 
+                  onClick={() => window.print()}
+                  className="no-print bg-amber-900 text-amber-100 px-6 py-2.5 rounded-xl font-bold text-xs shadow"
+                >
+                  രസീത് പ്രിന്റ് ചെയ്യുക (15 cm x 10 cm)
+                </button>
+
+                {selectedPrintReceipt ? (
+                  <div className="receipt-card-print bg-white p-4 border-2 border-amber-950 rounded-xl flex flex-col justify-between font-['Manjari']">
+                    <div className="text-center border-b pb-1">
+                      <h3 className="font-black text-amber-950 text-sm">ഇരുമ്പുഴി ശ്രീ മഹാവിഷ്ണു ക്ഷേത്രം</h3>
+                      <div className="flex justify-between text-[10px] font-bold mt-1">
+                        <span>No: {selectedPrintReceipt.receiptNo}</span>
+                        <span>Date: {selectedPrintReceipt.date}</span>
+                      </div>
+                    </div>
+
+                    <div className="my-1 bg-amber-50 p-1.5 rounded text-xs">
+                      <div className="flex justify-between font-bold">
+                        <span>പേര്: {selectedPrintReceipt.devoteeName}</span>
+                        <span>നാൾ: {selectedPrintReceipt.star}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 mt-0.5">രീതി: <strong>{selectedPrintReceipt.paymentMode || 'Cash'}</strong></div>
+                    </div>
+
+                    <div className="flex-1 my-1">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="border-b text-[10px]">
+                            <th>ഇനം</th>
+                            <th className="text-center">എണ്ണം</th>
+                            <th className="text-right">തുക</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedPrintReceipt.items && selectedPrintReceipt.items.map((it, idx) => (
+                            <tr key={idx}>
+                              <td className="font-bold">{it.name_ml}</td>
+                              <td className="text-center">{it.qty}</td>
+                              <td className="text-right font-bold">₹{it.rate * it.qty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="border-t pt-1 flex justify-between items-end">
+                      <div>
+                        <span className="text-xs font-bold">ആകെ തുക: </span>
+                        <span className="text-base font-black text-amber-950">₹{selectedPrintReceipt.totalAmount}</span>
+                      </div>
+                      <div className="text-[9px] text-slate-500 text-center">
+                        <div className="border-b w-20 mb-0.5"></div>
+                        <span>ക്ലർക്ക്</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 no-print">രസീത് ഒന്നും തിരഞ്ഞെടുത്തിട്ടില്ല.</div>
+                )}
+              </div>
+            )}
+          </main>
+
+          {/* Login / Role Switch Modal */}
+          {showLoginModal && (
+            <div className="fixed inset-0 bg-black/60 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleLoginSubmit} className="bg-white p-6 rounded-2xl max-w-sm w-full space-y-4 text-xs shadow-2xl border-2 border-amber-900">
+                <h3 className="font-extrabold text-base text-amber-950 border-b pb-2">🔒 യൂസർ റോൾ തിരഞ്ഞെടുക്കുക (Login)</h3>
+                
+                <div>
+                  <label className="block font-bold mb-1">യൂസർ / അഡ്മിൻ റോൾ തിരഞ്ഞെടുക്കുക:</label>
+                  <select 
+                    value={currentUserRole} 
+                    onChange={e => setCurrentUserRole(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl font-bold bg-amber-50"
+                  >
+                    <option value="counter1">👤 User 1 (കൗണ്ടർ ക്ലർക്ക് 1)</option>
+                    <option value="counter2">👤 User 2 (കൗണ്ടർ ക്ലർക്ക് 2)</option>
+                    <option value="counter3">👤 User 3 (കൗണ്ടർ ക്ലർക്ക് 3)</option>
+                    <option value="admin">🛡️ Admin (മുഴുവൻ അധികാരങ്ങളും - Delete അടക്കം)</option>
+                  </select>
+                </div>
+
+                {currentUserRole === 'admin' && (
+                  <div>
+                    <label className="block font-bold mb-1">അഡ്മിൻ പാസ്‌കോഡ് (Passcode):</label>
+                    <input 
+                      type="password" 
+                      placeholder="പാസ്‌കോഡ് നൽകുക (ഉദാ: 1234)" 
+                      value={loginPasscode} 
+                      onChange={e => setLoginPasscode(e.target.value)} 
+                      className="w-full p-2.5 border rounded-xl font-bold"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">ഡെമോ പാസ്‌കോഡ്: <code>1234</code></p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button type="button" onClick={() => setShowLoginModal(false)} className="px-4 py-2 bg-gray-200 rounded-xl font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-4 py-2 bg-amber-900 text-white rounded-xl font-bold">ലോഗിൻ ചെയ്യുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Change Password Modal */}
+          {showChangePassModal && (
+            <div className="fixed inset-0 bg-black/60 flex justify-center items-center p-4 z-50">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (oldPassInput !== adminPasscode) {
+                  alert('നിലവിലെ പാസ്‌വേർഡ് തെറ്റാണ്!');
+                  return;
+                }
+                if (newPassInput !== confirmPassInput) {
+                  alert('പുതിയ പാസ്‌വേർഡുകൾ തമ്മിൽ ഒത്തുപോകുന്നില്ല!');
+                  return;
+                }
+                if (!newPassInput) {
+                  alert('പുതിയ പാസ്‌വേർഡ് നൽകുക!');
+                  return;
+                }
+                setAdminPasscode(newPassInput);
+                alert('അഡ്മിൻ പാസ്‌വേർഡ് വിജയകരമായി മാറ്റിയിരിക്കുന്നു!');
+                setShowChangePassModal(false);
+                setOldPassInput('');
+                setNewPassInput('');
+                setConfirmPassInput('');
+              }} className="bg-white p-6 rounded-2xl max-w-sm w-full space-y-4 text-xs shadow-2xl border-2 border-amber-900">
+                <h3 className="font-extrabold text-base text-amber-950 border-b pb-2">🔑 അഡ്മിൻ പാസ്‌വേർഡ് മാറ്റുക</h3>
+                
+                <div>
+                  <label className="block font-bold mb-1">നിലവിലെ പാസ്‌വേർഡ്:</label>
+                  <input 
+                    type="password" 
+                    placeholder="പഴയ പാസ്‌വേർഡ് നൽകുക" 
+                    value={oldPassInput} 
+                    onChange={e => setOldPassInput(e.target.value)} 
+                    required
+                    className="w-full p-2.5 border rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">പുതിയ പാസ്‌വേർഡ്:</label>
+                  <input 
+                    type="password" 
+                    placeholder="പുതിയ പാസ്‌വേർഡ് നൽകുക" 
+                    value={newPassInput} 
+                    onChange={e => setNewPassInput(e.target.value)} 
+                    required
+                    className="w-full p-2.5 border rounded-xl font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">പുതിയ പാസ്‌വേർഡ് വീണ്ടും നൽകുക (Confirm):</label>
+                  <input 
+                    type="password" 
+                    placeholder="പാസ്‌വേർഡ് വീണ്ടും നൽകുക" 
+                    value={confirmPassInput} 
+                    onChange={e => setConfirmPassInput(e.target.value)} 
+                    required
+                    className="w-full p-2.5 border rounded-xl font-bold"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button type="button" onClick={() => setShowChangePassModal(false)} className="px-4 py-2 bg-gray-200 rounded-xl font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-4 py-2 bg-amber-900 text-white rounded-xl font-bold">പാസ്‌വേർഡ് മാറ്റുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Modals */}
+
+          {/* Offering Master Modal */}
+          {showOfferingModal && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleSaveOffering} className="bg-white p-5 rounded-xl max-w-sm w-full space-y-3 text-xs shadow-2xl">
+                <h3 className="font-bold text-sm border-b pb-1">വഴിപാട് / ഇനം ചേർക്കുക / എഡിറ്റ് ചെയ്യുക</h3>
+                <input type="text" placeholder="പേര്" value={offName} onChange={e => setOffName(e.target.value)} required className="w-full p-2 border rounded" />
+                <input type="number" placeholder="നിരക്ക്" value={offRate} onChange={e => setOffRate(e.target.value)} required className="w-full p-2 border rounded" />
+                <select value={offCategory} onChange={e => setOffCategory(e.target.value)} className="w-full p-2 border rounded">
+                  <option value="വഴിപാട്">വഴിപാട്</option>
+                  <option value="അന്നദാനം">അന്നദാനം</option>
+                  <option value="സംഭാവന">സംഭാവന</option>
+                </select>
+                <select value={offDeity} onChange={e => setOffDeity(e.target.value)} className="w-full p-2 border rounded">
+                  {deities.map((d, i) => <option key={i} value={d}>{d}</option>)}
+                </select>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowOfferingModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-amber-800 text-white rounded font-bold">സേവ് ചെയ്യുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Monthly Member Modal */}
+          {showMemberModal && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleSaveMember} className="bg-white p-5 rounded-xl max-w-md w-full space-y-3 text-xs shadow-2xl max-h-[90vh] overflow-y-auto">
+                <h3 className="font-bold text-sm border-b pb-1 text-amber-950">
+                  {editingMemberId ? '✏️ മാസപൂജ ഭക്തന്റെ വിവരങ്ങളും പൂജയും എഡിറ്റ് ചെയ്യുക' : '+ പുതിയ മാസപൂജ ഭക്തനെ ചേർക്കുക'}
+                </h3>
+                
+                <div>
+                  <label className="block font-bold mb-1">ഭക്തന്റെ പേര്:</label>
+                  <input type="text" placeholder="പേര്" value={memName} onChange={e => setMemName(e.target.value)} required className="w-full p-2 border rounded" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">നക്ഷത്രം:</label>
+                  <select value={memStar} onChange={e => setMemStar(e.target.value)} className="w-full p-2 border rounded bg-white">
+                    {STARS.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ഫോൺ നമ്പർ:</label>
+                  <input type="text" placeholder="ഫോൺ" value={memPhone} onChange={e => setMemPhone(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-amber-900">വഴിപാടുകളും ദേവന്മാരും തിരഞ്ഞെടുക്കുക (തുക ഓട്ടോമാറ്റിക് ആകും):</label>
+                  <div className="border p-2 rounded max-h-40 overflow-y-auto space-y-1.5 bg-amber-50/50">
+                    {offerings.map((off) => (
+                      <label key={off.id} className="flex items-center space-x-2 text-xs font-semibold cursor-pointer hover:bg-amber-100 p-1.5 rounded border border-amber-200/60 bg-white">
+                        <input 
+                          type="checkbox" 
+                          checked={memSelectedOfferingIds.includes(off.id)}
+                          onChange={() => toggleMonthlyOfferingId(off.id)}
+                          className="rounded text-amber-800 focus:ring-amber-500 w-4 h-4"
+                        />
+                        <div className="flex-1 flex justify-between items-center">
+                          <span className="font-bold text-amber-950">{off.name_ml} <span className="text-slate-600 font-normal">({off.deity})</span></span>
+                          <span className="text-emerald-800 font-black">₹{off.rate}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-amber-900">പൂജ ക്രമം / വിവരം (Description Box):</label>
+                  <select value={memOccurrence} onChange={e => setMemOccurrence(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-amber-950">
+                    <option value="ഒന്നാമത്തെ പൂജ">ഒന്നാമത്തെ പൂജ (മാസത്തിലെ ആദ്യ നാൾ)</option>
+                    <option value="രണ്ടാമത്തെ പൂജ">രണ്ടാമത്തെ പൂജ (മാസത്തിലെ രണ്ടാമത്തെ നാൾ)</option>
+                    <option value="പ്രത്യേക വഴിപാട്">പ്രത്യേക വഴിപാട്</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ആകെ തുക (₹ - ഓട്ടോമാറ്റിക്):</label>
+                  <input type="number" placeholder="തുക" value={memAmount} onChange={e => setMemAmount(e.target.value)} required className="w-full p-2 border rounded font-bold text-emerald-800 bg-amber-50/50" />
+                </div>
+                
+                <div>
+                  <label className="block font-bold mb-1">ഏത് മാസം വരെ അടച്ചു:</label>
+                  <select value={memPaidUntil} onChange={e => setMemPaidUntil(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-emerald-900">
+                    {MONTH_OPTIONS.map((m, idx) => <option key={idx} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ഏത് മാസം വരെ ബാക്കിയുണ്ട്:</label>
+                  <select value={memDueUntil} onChange={e => setMemDueUntil(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-rose-900">
+                    {MONTH_OPTIONS.map((m, idx) => <option key={idx} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">പെയ്‌മെന്റ് രീതി (Payment Mode)</label>
+                  <select value={memPayMode} onChange={e => setMemPayMode(e.target.value)} className="w-full p-2 border rounded bg-white">
+                    <option value="Cash">Cash (പണം)</option>
+                    <option value="QR Code">QR Code</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online Transfer</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button type="button" onClick={() => setShowMemberModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-amber-800 text-white rounded font-bold">സേവ് ചെയ്യുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Muppettu Member Modal */}
+          {showMuppettuModal && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleSaveMuppettuMember} className="bg-white p-5 rounded-xl max-w-md w-full space-y-3 text-xs shadow-2xl max-h-[90vh] overflow-y-auto">
+                <h3 className="font-bold text-sm border-b pb-1 text-amber-950">
+                  {editingMuppettuId ? '✏️ മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജ വിവരം എഡിറ്റ് ചെയ്യുക' : '+ പുതിയ മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജ ചേർക്കുക'}
+                </h3>
+                
+                <div>
+                  <label className="block font-bold mb-1">ഭക്തന്റെ പേര്:</label>
+                  <input type="text" placeholder="പേര്" value={mupName} onChange={e => setMupName(e.target.value)} required className="w-full p-2 border rounded" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">നക്ഷത്രം:</label>
+                  <select value={mupStar} onChange={e => setMupStar(e.target.value)} className="w-full p-2 border rounded bg-white">
+                    {STARS.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ഫോൺ നമ്പർ:</label>
+                  <input type="text" placeholder="ഫോൺ" value={mupPhone} onChange={e => setMupPhone(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-amber-900">വഴിപാടുകളും ദേവന്മാരും തിരഞ്ഞെടുക്കുക (തുക ഓട്ടോമാറ്റിക് ആകും):</label>
+                  <div className="border p-2 rounded max-h-40 overflow-y-auto space-y-1.5 bg-amber-50/50">
+                    {offerings.map((off) => (
+                      <label key={off.id} className="flex items-center space-x-2 text-xs font-semibold cursor-pointer hover:bg-amber-100 p-1.5 rounded border border-amber-200/60 bg-white">
+                        <input 
+                          type="checkbox" 
+                          checked={mupSelectedOfferingIds.includes(off.id)}
+                          onChange={() => toggleMuppettuOfferingId(off.id)}
+                          className="rounded text-amber-800 focus:ring-amber-500 w-4 h-4"
+                        />
+                        <div className="flex-1 flex justify-between items-center">
+                          <span className="font-bold text-amber-950">{off.name_ml} <span className="text-slate-600 font-normal">({off.deity})</span></span>
+                          <span className="text-emerald-800 font-black">₹{off.rate}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-amber-900">പൂജ ക്രമം / വിവരം (Description Box):</label>
+                  <select value={mupOccurrence} onChange={e => setMupOccurrence(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-amber-950">
+                    <option value="ഒന്നാമത്തെ പൂജ">ഒന്നാമത്തെ പൂജ (മാസത്തിലെ ആദ്യ വ്യാഴാഴ്ച)</option>
+                    <option value="രണ്ടാമത്തെ പൂജ">രണ്ടാമത്തെ പൂജ</option>
+                    <option value="പ്രത്യേക വഴിപാട്">പ്രത്യേക വഴിപാട്</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ആകെ തുക (₹ - ഓട്ടോമാറ്റിക്):</label>
+                  <input type="number" placeholder="തുക" value={mupAmount} onChange={e => setMupAmount(e.target.value)} required className="w-full p-2 border rounded font-bold text-emerald-800 bg-amber-50/50" />
+                </div>
+                
+                <div>
+                  <label className="block font-bold mb-1">ഏത് മാസം വരെ അടച്ചു:</label>
+                  <select value={mupPaidUntil} onChange={e => setMupPaidUntil(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-emerald-900">
+                    {MONTH_OPTIONS.map((m, idx) => <option key={idx} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ഏത് മാസം വരെ ബാക്കിയുണ്ട്:</label>
+                  <select value={mupDueUntil} onChange={e => setMupDueUntil(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-rose-900">
+                    {MONTH_OPTIONS.map((m, idx) => <option key={idx} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">പെയ്‌മെന്റ് രീതി (Payment Mode)</label>
+                  <select value={mupPayMode} onChange={e => setMupPayMode(e.target.value)} className="w-full p-2 border rounded bg-white">
+                    <option value="Cash">Cash (പണം)</option>
+                    <option value="QR Code">QR Code</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online Transfer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">അധിക വിവരങ്ങൾ / കുറിപ്പുകൾ:</label>
+                  <input type="text" placeholder="കുറിപ്പുകൾ" value={mupNotes} onChange={e => setMupNotes(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button type="button" onClick={() => setShowMuppettuModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-amber-800 text-white rounded font-bold">സേവ് ചെയ്യുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Monthly Payment Record Modal */}
+          {showPayRecordModal && selectedMemberForPay && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleConfirmPaymentRecord} className="bg-white p-5 rounded-xl max-w-sm w-full space-y-3 text-xs shadow-2xl">
+                <h3 className="font-bold text-sm border-b pb-1">പണം സ്വീകരിച്ച വിവരം രേഖപ്പെടുത്തുക (മാസപൂജ)</h3>
+                <div className="bg-amber-50 p-2 rounded border border-amber-200 font-bold">
+                  <div>ഭക്തൻ: {selectedMemberForPay.name} ({selectedMemberForPay.star})</div>
+                  <div>പൂജകൾ: {selectedMemberForPay.poojaName}</div>
+                  <div>ക്രമം: {selectedMemberForPay.occurrence || 'ഒന്നാമത്തെ പൂജ'}</div>
+                  <div>തുക: ₹{selectedMemberForPay.amount}</div>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ഏത് മാസം വരെ അടച്ചു:</label>
+                  <select value={recordMonthVal} onChange={e => setRecordMonthVal(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-emerald-900">
+                    {MONTH_OPTIONS.map((m, idx) => <option key={idx} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">പെയ്‌മെന്റ് രീതി:</label>
+                  <select value={recordPayModeVal} onChange={e => setRecordPayModeVal(e.target.value)} className="w-full p-2 border rounded bg-white">
+                    <option value="Cash">Cash (പണം)</option>
+                    <option value="QR Code">QR Code</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online Transfer</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowPayRecordModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-emerald-700 text-white font-bold rounded">സേവ് & പ്രിന്റ്</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Muppettu Payment Record Modal */}
+          {showMuppettuPayModal && selectedMuppettuForPay && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleConfirmMuppettuPayRecord} className="bg-white p-5 rounded-xl max-w-sm w-full space-y-3 text-xs shadow-2xl">
+                <h3 className="font-bold text-sm border-b pb-1">മുപ്പെട്ട് വ്യാഴാഴ്ച പൂജ - പണം സ്വീകരിച്ച വിവരം</h3>
+                <div className="bg-amber-50 p-2 rounded border border-amber-200 font-bold">
+                  <div>ഭക്തൻ: {selectedMuppettuForPay.name} ({selectedMuppettuForPay.star})</div>
+                  <div>പൂജകൾ: {selectedMuppettuForPay.poojaName}</div>
+                  <div>ക്രമം: {selectedMuppettuForPay.occurrence || 'ഒന്നാമത്തെ പൂജ'}</div>
+                  <div>തുക: ₹{selectedMuppettuForPay.amount}</div>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ഏത് മാസം വരെ അടച്ചു:</label>
+                  <select value={recordMonthVal} onChange={e => setRecordMonthVal(e.target.value)} className="w-full p-2 border rounded bg-white font-bold text-emerald-900">
+                    {MONTH_OPTIONS.map((m, idx) => <option key={idx} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">പെയ്‌മെന്റ് രീതി:</label>
+                  <select value={recordPayModeVal} onChange={e => setRecordPayModeVal(e.target.value)} className="w-full p-2 border rounded bg-white">
+                    <option value="Cash">Cash (പണം)</option>
+                    <option value="QR Code">QR Code</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online Transfer</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowMuppettuPayModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-emerald-700 text-white font-bold rounded">സേവ് & പ്രിന്റ്</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Staff Modal */}
+          {showStaffModal && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleSaveStaff} className="bg-white p-5 rounded-xl max-w-sm w-full space-y-3 text-xs shadow-2xl">
+                <h3 className="font-bold text-sm border-b pb-1">ജീവനക്കാരന്റെ വിവരങ്ങൾ</h3>
+                <input type="text" placeholder="പേര്" value={staffName} onChange={e => setStaffName(e.target.value)} required className="w-full p-2 border rounded" />
+                <input type="text" placeholder="തസ്തിക (Designation)" value={staffDesig} onChange={e => setStaffDesig(e.target.value)} required className="w-full p-2 border rounded" />
+                <input type="number" placeholder="അടിസ്ഥാന ശമ്പളം" value={staffSalary} onChange={e => setStaffSalary(e.target.value)} required className="w-full p-2 border rounded" />
+                <input type="text" placeholder="ഫോൺ" value={staffPhone} onChange={e => setStaffPhone(e.target.value)} className="w-full p-2 border rounded" />
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowStaffModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-amber-800 text-white rounded font-bold">സേവ് ചെയ്യുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Income Entry Modal */}
+          {showIncomeModal && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleSaveOtherIncome} className="bg-white p-5 rounded-xl max-w-sm w-full space-y-3 text-xs shadow-2xl">
+                <h3 className="font-bold text-sm border-b pb-1 text-emerald-900">+ മറ്റ് വരുമാനങ്ങൾ രേഖപ്പെടുത്തുക</h3>
+                <div>
+                  <label className="block font-bold mb-1">വരുമാന വിഭാഗം:</label>
+                  <select value={incCategory} onChange={e => setIncCategory(e.target.value)} className="w-full p-2 border rounded bg-white font-bold">
+                    <option value="അന്നദാനം">അന്നദാനം</option>
+                    <option value="സംഭാവന">സംഭാവന</option>
+                    <option value="ഭണ്ഡാരവരവ്">ഭണ്ഡാരവരവ്</option>
+                    <option value="മാസവരി">മാസവരി</option>
+                    <option value="നിർമ്മാണ പ്രവർത്തികൾ">നിർമ്മാണ പ്രവർത്തികൾ</option>
+                    <option value="അഖണ്ഡനാമം">സംഭാവന അഖണ്ഡനാമം</option>
+                    <option value="മറ്റു വരുമാനങ്ങൾ">മറ്റു വരുമാനങ്ങൾ</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">നൽകിയ ആളുടെ പേര്:</label>
+                  <input type="text" placeholder="പേര്" value={incPayerName} onChange={e => setIncPayerName(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">തുക (₹):</label>
+                  <input type="number" placeholder="തുക" value={incAmount} onChange={e => setIncAmount(e.target.value)} required className="w-full p-2 border rounded font-bold text-emerald-800 text-sm" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">പെയ്‌മെന്റ് രീതി (Payment Mode):</label>
+                  <select value={incPayMode} onChange={e => setIncPayMode(e.target.value)} className="w-full p-2 border rounded bg-white font-bold">
+                    <option value="Cash">Cash (പണം)</option>
+                    <option value="QR Code">QR Code</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online Transfer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">കുറിപ്പ് / വിശദാംശം:</label>
+                  <input type="text" placeholder="വിശദാംശങ്ങൾ" value={incNotes} onChange={e => setIncNotes(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowIncomeModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-emerald-700 text-white rounded font-bold">സേവ് ചെയ്യുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Expense Entry Modal */}
+          {showExpenseModal && (
+            <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+              <form onSubmit={handleSaveExpense} className="bg-white p-5 rounded-xl max-w-sm w-full space-y-3 text-xs shadow-2xl">
+                <h3 className="font-bold text-sm border-b pb-1 text-rose-900">- ദിവസേനയുള്ള ചിലവുകൾ രേഖപ്പെടുത്തുക</h3>
+                <div>
+                  <label className="block font-bold mb-1">ചിലവിന്റെ തീയതി:</label>
+                  <input type="date" value={expDate} onChange={e => setExpDate(e.target.value)} required className="w-full p-2 border rounded bg-white font-bold" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">ചിലവ് വിഭാഗം (Expense Category):</label>
+                  <select value={expCategory} onChange={e => setExpCategory(e.target.value)} className="w-full p-2 border rounded bg-white font-bold">
+                    <option value="അന്നദാനത്തിനുള്ള സാധനങ്ങൾ">അന്നദാനത്തിനുള്ള സാധനങ്ങൾ</option>
+                    <option value="നിത്യനിധാനങ്ങൾ">നിത്യനിധാനങ്ങൾ</option>
+                    <option value="പൂജാ സാമഗ്രികൾ">പൂജാ സാമഗ്രികൾ (എണ്ണ, പൂവ്, മുതലായവ)</option>
+                    <option value="ഇലക്ട്രിസിറ്റി">ഇലക്ട്രിസിറ്റി</option>
+                    <option value="ഫോൺ">ഫോൺ</option>
+                    <option value="CCTV Recharge">CCTV Recharge</option>
+                    <option value="അറ്റകുറ്റപ്പണികൾ & നിർമ്മാണം">അറ്റകുറ്റപ്പണികൾ & നിർമ്മാണം</option>
+                    <option value="മറ്റ് ചിലവുകൾ">മറ്റ് ചിലവുകൾ</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">തുക (₹):</label>
+                  <input type="number" placeholder="തുക" value={expAmount} onChange={e => setExpAmount(e.target.value)} required className="w-full p-2 border rounded font-bold text-rose-800 text-sm" />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">സാധനങ്ങളുടെ / ചിലവിന്റെ വിശദാംശങ്ങൾ:</label>
+                  <input type="text" placeholder="ഉദാഹരണത്തിന്: അരി, പച്ചക്കറികൾ വാങ്ങി" value={expNotes} onChange={e => setExpNotes(e.target.value)} required className="w-full p-2 border rounded" />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowExpenseModal(false)} className="px-3 py-1 bg-gray-200 rounded font-bold">റദ്ദാക്കുക</button>
+                  <button type="submit" className="px-3 py-1 bg-rose-700 text-white rounded font-bold">സേവ് ചെയ്യുക</button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
